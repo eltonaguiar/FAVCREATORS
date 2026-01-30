@@ -10,6 +10,7 @@ interface CreatorFormProps {
 const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
     const [name, setName] = useState('');
     const [bio, setBio] = useState('');
+    const [reason, setReason] = useState('');
     const [avatarUrl, setAvatarUrl] = useState('');
     const [accounts, setAccounts] = useState<SocialAccount[]>([]);
 
@@ -33,6 +34,7 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
             id: crypto.randomUUID(),
             name,
             bio,
+            reason,
             avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${name}`,
             accounts,
             isFavorite: false,
@@ -48,6 +50,10 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
                     <div className="form-group">
                         <label>Name</label>
                         <input value={name} onChange={e => setName(e.target.value)} placeholder="MrBeast" required />
+                    </div>
+                    <div className="form-group">
+                        <label>Reason for following (Optional)</label>
+                        <input value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Motivational speaker" />
                     </div>
                     <div className="form-group">
                         <label>Bio</label>
@@ -69,6 +75,8 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
                                 <option value="youtube">YouTube</option>
                                 <option value="tiktok">TikTok</option>
                                 <option value="instagram">Instagram</option>
+                                <option value="kick">Kick</option>
+                                <option value="twitch">Twitch</option>
                                 <option value="other">Other</option>
                             </select>
                             <input

@@ -1,11 +1,13 @@
 
-export type Platform = 'youtube' | 'tiktok' | 'instagram' | 'other';
+export type Platform = 'youtube' | 'tiktok' | 'instagram' | 'kick' | 'twitch' | 'other';
 
 export interface SocialAccount {
     id: string;
     platform: Platform;
     username: string;
     url: string;
+    followers?: string;
+    isLive?: boolean;
 }
 
 export interface Creator {
@@ -16,4 +18,6 @@ export interface Creator {
     accounts: SocialAccount[];
     isFavorite: boolean;
     addedAt: number;
+    isLive?: boolean;
+    reason?: string;
 }
