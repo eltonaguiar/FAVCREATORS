@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
-// Build version: 2026-01-30-v5-XYZMAGIC123 - Single proxy only
 import "./App.css";
-console.log("XYZMAGIC123_BUILD_CHECK");
 import type { Creator, SocialAccount, Platform } from "./types";
 import CreatorCard from "./components/CreatorCard";
 import CreatorForm from "./components/CreatorForm";
