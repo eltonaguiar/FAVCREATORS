@@ -251,9 +251,18 @@ const INITIAL_DATA: Creator[] = [
   },
 ];
 
+const DATA_VERSION = "2.0"; // Increment this to force reset localStorage
+
 function App() {
   const [creators, setCreators] = useState<Creator[]>(() => {
     try {
+      const savedVersion = localStorage.getItem("fav_creators_version");
+      // Reset data if version mismatch (categories changed)
+      if (savedVersion !== DATA_VERSION) {
+        localStorage.setItem("fav_creators_version", DATA_VERSION);
+        localStorage.removeItem("fav_creators");
+        return INITIAL_DATA;
+      }
       const saved = localStorage.getItem("fav_creators");
       return saved ? JSON.parse(saved) : INITIAL_DATA;
     } catch (e) {
