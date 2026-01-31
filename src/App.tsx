@@ -75,7 +75,7 @@ const INITIAL_DATA: Creator[] = [
         url: "https://tiktok.com/@zarthestar",
         followers: "500",
         lastChecked: Date.now() - 1500,
-      }
+      },
     ],
   },
   {
@@ -295,7 +295,7 @@ const INITIAL_DATA: Creator[] = [
   },
 ];
 
-const DATA_VERSION = "2.0"; // Increment this to force reset localStorage
+const DATA_VERSION = "3.0"; // Increment this to force reset localStorage
 
 function App() {
   const [creators, setCreators] = useState<Creator[]>(() => {
