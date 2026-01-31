@@ -273,7 +273,7 @@ function App() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("Favorites");
   const [viewStyle, setViewStyle] = useState<"grouped" | "filtered">(() => {
     const saved = localStorage.getItem("fav_creators_view_style");
     return saved === "grouped" || saved === "filtered" ? saved : "filtered";
