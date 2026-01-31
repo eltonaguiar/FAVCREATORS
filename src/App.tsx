@@ -71,8 +71,8 @@ const INITIAL_DATA: Creator[] = [
       {
         id: "zarthestar-youtube",
         platform: "youtube",
-        username: "zarthestar",
-        url: "https://youtube.com/@zarthestar",
+        username: "zarthestarcomedy",
+        url: "https://youtube.com/@zarthestarcomedy",
         followers: "800",
         lastChecked: Date.now() - 1500,
       },
@@ -674,7 +674,7 @@ function App() {
 
       // Specialized matching for specific creators
       if (cleanUsername === "zarthestar") {
-        if (platform === "tiktok") cleanUsername = "zarthestarcomedy";
+        if (platform === "tiktok" || platform === "youtube") cleanUsername = "zarthestarcomedy";
         if (platform === "instagram") cleanUsername = "zar.the.star";
       }
 
