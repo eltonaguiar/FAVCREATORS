@@ -321,7 +321,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "dropdown">("list");
-  const [featuredFilter, setFeaturedFilter] = useState<"all" | "adinross" | "starfireara">("all");
+  const [featuredFilter, setFeaturedFilter] = useState<
+    "all" | "adinross" | "starfireara"
+  >("all");
   const [quickAddValue, setQuickAddValue] = useState("fouseytube");
   const [packPreview, setPackPreview] = useState<Creator[] | null>(null);
   const [packNotice, setPackNotice] = useState<string | null>(null);
@@ -787,11 +789,11 @@ function App() {
       creators.map((c) =>
         c.id === id
           ? {
-            ...c,
-            isLive: anyAccountLive,
-            accounts: updatedAccounts,
-            lastChecked: now,
-          }
+              ...c,
+              isLive: anyAccountLive,
+              accounts: updatedAccounts,
+              lastChecked: now,
+            }
           : c,
       ),
     );
@@ -896,6 +898,67 @@ function App() {
     );
   };
 
+  // Render view mode toggle (list vs dropdown)
+  const renderViewModeToggle = () => (
+    <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+      <button
+        className={viewMode === "list" ? "active" : ""}
+        onClick={() => setViewMode("list")}
+        style={{
+          padding: "0.5rem 1rem",
+          background: viewMode === "list" ? "var(--accent)" : "var(--card-bg)",
+          color: viewMode === "list" ? "white" : "var(--text)",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+        }}
+      >
+        List View
+      </button>
+      <button
+        className={viewMode === "dropdown" ? "active" : ""}
+        onClick={() => setViewMode("dropdown")}
+        style={{
+          padding: "0.5rem 1rem",
+          background:
+            viewMode === "dropdown" ? "var(--accent)" : "var(--card-bg)",
+          color: viewMode === "dropdown" ? "white" : "var(--text)",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+        }}
+      >
+        Dropdown View
+      </button>
+    </div>
+  );
+
+  // Render featured filter dropdown (for Favorites: Adin Ross, Starfireara)
+  const renderFeaturedFilterDropdown = () => (
+    <div style={{ marginBottom: "1rem" }}>
+      <label style={{ marginRight: "0.5rem" }}>Featured Filter:</label>
+      <select
+        value={featuredFilter}
+        onChange={(e) =>
+          setFeaturedFilter(
+            e.target.value as "all" | "adinross" | "starfireara",
+          )
+        }
+        style={{
+          padding: "0.5rem",
+          borderRadius: "4px",
+          border: "1px solid var(--border)",
+          background: "var(--card-bg)",
+          color: "var(--text)",
+        }}
+      >
+        <option value="all">All Favorites</option>
+        <option value="adinross">Adin Ross Only</option>
+        <option value="starfireara">Starfireara Only</option>
+      </select>
+    </div>
+  );
+
   return (
     <div className="app-container">
       <header>
@@ -937,9 +1000,64 @@ function App() {
             onChange={(e) => setCategoryFilter(e.target.value)}
             style={{ minWidth: 140 }}
           >
+            <option value="">All Categories</option>
             <option value="Favorites">Favorites</option>
             <option value="Other">Other</option>
           </select>
+
+          {/* View mode toggle */}
+          <div
+            className="view-mode-toggle"
+            style={{
+              display: "flex",
+              gap: "4px",
+              backgroundColor: "rgba(255,255,255,0.05)",
+              padding: "4px",
+              borderRadius: "8px",
+            }}
+          >
+            <button
+              type="button"
+              className={`btn-secondary ${viewMode === "list" ? "view-active" : ""}`}
+              onClick={() => setViewMode("list")}
+              style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem" }}
+            >
+              List with headers
+            </button>
+            <button
+              type="button"
+              className={`btn-secondary ${viewMode === "dropdown" ? "view-active" : ""}`}
+              onClick={() => setViewMode("dropdown")}
+              style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem" }}
+            >
+              Dropdown filter
+            </button>
+          </div>
+
+          {/* Featured filter dropdown (only in dropdown mode) */}
+          {viewMode === "dropdown" && (
+            <div
+              className="featured-filter-container"
+              style={{ display: "flex", alignItems: "center", gap: "8px" }}
+            >
+              <label
+                htmlFor="featured-filter-select"
+                style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}
+              >
+                Filter:
+              </label>
+              <select
+                id="featured-filter-select"
+                value={featuredFilter}
+                onChange={(e) => setFeaturedFilter(e.target.value as any)}
+                style={{ minWidth: 140 }}
+              >
+                <option value="all">All Creators</option>
+                <option value="adinross">Adin Ross only</option>
+                <option value="starfireara">Starfireara only</option>
+              </select>
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", gap: "0.8rem" }}>
           <button
@@ -991,31 +1109,143 @@ function App() {
         <div className="pack-notice">{packNotice}</div>
       )}
 
-      {/* Featured View - Single list filtered by dropdown */}
-      <div className="creator-grid" style={{ marginTop: "2rem" }}>
-        {creators
-          .filter((c) => {
-            const search = searchQuery.toLowerCase().replace(/\s+/g, "");
-            const matchesSearch = c.name
-              .toLowerCase()
-              .replace(/\s+/g, "")
-              .includes(search);
-            const matchesCategory =
-              !categoryFilter || c.category === categoryFilter;
-            return matchesSearch && matchesCategory;
-          })
-          .map((creator) => (
-            <CreatorCard
-              key={creator.id}
-              creator={creator}
-              onToggleFavorite={handleToggleFavorite}
-              onDelete={handleDeleteCreator}
-              onRemoveAccount={handleRemoveAccount}
-              onCheckStatus={handleCheckCreatorStatus}
-              onTogglePin={handleTogglePin}
-              onUpdateNote={handleUpdateNote}
-            />
-          ))}
+      {/* Main Content Area */}
+      <div className="main-content-display" style={{ marginTop: "2rem" }}>
+        {viewMode === "list" ? (
+          <>
+            {/* List Mode with Headers */}
+            {/* Starfireara Section */}
+            {creators
+              .filter(
+                (c) =>
+                  c.name.toLowerCase().includes("starfireara") &&
+                  (!categoryFilter || c.category === categoryFilter) &&
+                  c.name
+                    .toLowerCase()
+                    .replace(/\s+/g, "")
+                    .includes(searchQuery.toLowerCase().replace(/\s+/g, "")),
+              )
+              .map((creator) => (
+                <div key={creator.id} className="creator-section-featured">
+                  <CreatorCard
+                    creator={creator}
+                    onToggleFavorite={handleToggleFavorite}
+                    onDelete={handleDeleteCreator}
+                    onRemoveAccount={handleRemoveAccount}
+                    onCheckStatus={handleCheckCreatorStatus}
+                    onTogglePin={handleTogglePin}
+                    onUpdateNote={handleUpdateNote}
+                  />
+                </div>
+              ))}
+
+            {/* Adin Ross Section */}
+            {creators
+              .filter(
+                (c) =>
+                  c.name.toLowerCase().includes("adin ross") &&
+                  (!categoryFilter || c.category === categoryFilter) &&
+                  c.name
+                    .toLowerCase()
+                    .replace(/\s+/g, "")
+                    .includes(searchQuery.toLowerCase().replace(/\s+/g, "")),
+              )
+              .map((creator) => (
+                <div
+                  key={creator.id}
+                  className="creator-section-featured"
+                  style={{ marginTop: "1rem" }}
+                >
+                  <CreatorCard
+                    creator={creator}
+                    onToggleFavorite={handleToggleFavorite}
+                    onDelete={handleDeleteCreator}
+                    onRemoveAccount={handleRemoveAccount}
+                    onCheckStatus={handleCheckCreatorStatus}
+                    onTogglePin={handleTogglePin}
+                    onUpdateNote={handleUpdateNote}
+                  />
+                </div>
+              ))}
+
+            {/* Other Creators Header */}
+            <h2
+              id="other-creators-section"
+              style={{
+                marginTop: "3rem",
+                marginBottom: "1.5rem",
+                color: "var(--text-muted)",
+                fontSize: "1.5rem",
+                borderBottom: "1px solid rgba(255,255,255,0.1)",
+                paddingBottom: "0.5rem",
+              }}
+            >
+              Other Creators
+            </h2>
+
+            {/* Other Creators Grid */}
+            <div className="creator-grid">
+              {creators
+                .filter(
+                  (c) =>
+                    !c.name.toLowerCase().includes("starfireara") &&
+                    !c.name.toLowerCase().includes("adin ross") &&
+                    (!categoryFilter || c.category === categoryFilter) &&
+                    c.name
+                      .toLowerCase()
+                      .replace(/\s+/g, "")
+                      .includes(searchQuery.toLowerCase().replace(/\s+/g, "")),
+                )
+                .map((creator) => (
+                  <CreatorCard
+                    key={creator.id}
+                    creator={creator}
+                    onToggleFavorite={handleToggleFavorite}
+                    onDelete={handleDeleteCreator}
+                    onRemoveAccount={handleRemoveAccount}
+                    onCheckStatus={handleCheckCreatorStatus}
+                    onTogglePin={handleTogglePin}
+                    onUpdateNote={handleUpdateNote}
+                  />
+                ))}
+            </div>
+          </>
+        ) : (
+          /* Dropdown Filter Mode */
+          <div className="creator-grid">
+            {creators
+              .filter((c) => {
+                const search = searchQuery.toLowerCase().replace(/\s+/g, "");
+                const matchesSearch = c.name
+                  .toLowerCase()
+                  .replace(/\s+/g, "")
+                  .includes(search);
+                const matchesCategory =
+                  !categoryFilter || c.category === categoryFilter;
+
+                if (!matchesSearch || !matchesCategory) return false;
+
+                if (featuredFilter === "adinross") {
+                  return c.name.toLowerCase().includes("adin ross");
+                } else if (featuredFilter === "starfireara") {
+                  return c.name.toLowerCase().includes("starfireara");
+                }
+                return true; // "all" mode
+              })
+              .map((creator) => (
+                <CreatorCard
+                  key={creator.id}
+                  creator={creator}
+                  onToggleFavorite={handleToggleFavorite}
+                  onDelete={handleDeleteCreator}
+                  onRemoveAccount={handleRemoveAccount}
+                  onCheckStatus={handleCheckCreatorStatus}
+                  onTogglePin={handleTogglePin}
+                  onUpdateNote={handleUpdateNote}
+                />
+              ))}
+          </div>
+        )}
       </div>
 
       {isFormOpen && (
