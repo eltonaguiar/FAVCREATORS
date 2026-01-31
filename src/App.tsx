@@ -37,7 +37,7 @@ const INITIAL_DATA: Creator[] = [
   {
     id: "zarthestar-1",
     name: "Zarthestar",
-    bio: "Cosmic content creator and explorer of the digital universe.",
+    bio: "Cosmic content creator and explorer of the digital universe. TikTok comedy & lifestyle.",
     avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Zarthestar",
     isFavorite: false,
     addedAt: Date.now() - 2000,
@@ -45,11 +45,19 @@ const INITIAL_DATA: Creator[] = [
     category: "Other",
     accounts: [
       {
-        id: "zarthestar-kick",
-        platform: "kick",
-        username: "zarthestar",
-        url: "https://kick.com/zarthestar",
-        followers: "1.2K",
+        id: "zarthestar-tiktok",
+        platform: "tiktok",
+        username: "zarthestarcomedy",
+        url: "https://www.tiktok.com/@zarthestarcomedy",
+        followers: "125K",
+        lastChecked: Date.now() - 1500,
+      },
+      {
+        id: "zarthestar-instagram",
+        platform: "instagram",
+        username: "zar.the.star",
+        url: "https://www.instagram.com/zar.the.star/?hl=en",
+        followers: "45K",
         lastChecked: Date.now() - 1500,
       },
       {
@@ -66,14 +74,6 @@ const INITIAL_DATA: Creator[] = [
         username: "zarthestar",
         url: "https://youtube.com/@zarthestar",
         followers: "800",
-        lastChecked: Date.now() - 1500,
-      },
-      {
-        id: "zarthestar-tiktok",
-        platform: "tiktok",
-        username: "zarthestar",
-        url: "https://tiktok.com/@zarthestar",
-        followers: "500",
         lastChecked: Date.now() - 1500,
       },
     ],
@@ -193,14 +193,6 @@ const INITIAL_DATA: Creator[] = [
     category: "Favorites",
     accounts: [
       {
-        id: "6a",
-        platform: "kick",
-        username: "starfireara",
-        url: "https://kick.com/starfireara",
-        followers: "50.2K",
-        lastChecked: Date.now() - 2500,
-      },
-      {
         id: "6b",
         platform: "tiktok",
         username: "starfireara",
@@ -294,7 +286,7 @@ const INITIAL_DATA: Creator[] = [
   },
 ];
 
-const DATA_VERSION = "6.0"; // Increment this to force reset localStorage
+const DATA_VERSION = "7.0"; // Increment this to force reset localStorage
 
 function App() {
   const [creators, setCreators] = useState<Creator[]>(() => {
@@ -317,11 +309,8 @@ function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
-  const [viewMode, setViewMode] = useState<"list" | "dropdown">("list");
-  const [quickAddValue, setQuickAddValue] = useState("fouseytube");
-  const [packPreview, setPackPreview] = useState<Creator[] | null>(null);
-  const [packNotice, setPackNotice] = useState<string | null>(null);
-  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "dropdown" | "table">("list");
+  const [quickAddValue, setQuickAddValue] = useState("");
 
   // Helper: Fetch with timeout to prevent hanging requests
   const fetchWithTimeout = async (
@@ -589,23 +578,7 @@ function App() {
     localStorage.setItem("fav_creators", JSON.stringify(creators));
   }, [creators]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const pack = params.get("pack");
-    if (!pack) return;
-
-    try {
-      const decoded = JSON.parse(decodeURIComponent(atob(pack))) as Creator[];
-      if (Array.isArray(decoded) && decoded.length > 0) {
-        setPackPreview(decoded);
-        setPackNotice("A shared creator pack is waiting for you.");
-      }
-    } catch (error) {
-      console.warn("Failed to decode shared pack", error);
-      setPackNotice("Could not read the shared creator pack.");
-    }
-  }, []);
+  // No longer checking for shared pack in URL
 
   const updateAllLiveStatuses = async () => {
     // Get current creators
@@ -687,7 +660,7 @@ function App() {
 
     // Auto-find logic: if no platforms specified, search all major ones
     if (requestedPlatforms.length === 0) {
-      requestedPlatforms = ["kick", "twitch", "youtube", "tiktok"];
+      requestedPlatforms = ["kick", "twitch", "youtube", "tiktok", "instagram"];
     }
 
     const accounts: SocialAccount[] = [];
@@ -696,8 +669,14 @@ function App() {
     requestedPlatforms.forEach((p) => {
       const platform = p.toLowerCase() as Platform;
       const id = crypto.randomUUID();
-      const cleanUsername = name.toLowerCase().replace(/\s+/g, "");
+      let cleanUsername = name.toLowerCase().replace(/\s+/g, "");
       const dummyFollowers = (Math.random() * 5 + 0.5).toFixed(1) + "M";
+
+      // Specialized matching for specific creators
+      if (cleanUsername === "zarthestar") {
+        if (platform === "tiktok") cleanUsername = "zarthestarcomedy";
+        if (platform === "instagram") cleanUsername = "zar.the.star";
+      }
 
       const baseAccount = {
         id,
@@ -726,6 +705,11 @@ function App() {
         accounts.push({
           ...baseAccount,
           url: `https://tiktok.com/@${cleanUsername}`,
+        });
+      } else if (platform === "instagram") {
+        accounts.push({
+          ...baseAccount,
+          url: `https://instagram.com/${cleanUsername}`,
         });
       }
     });
@@ -898,60 +882,14 @@ function App() {
       creators.map((c) =>
         c.id === id
           ? {
-              ...c,
-              isLive: anyAccountLive,
-              accounts: updatedAccounts,
-              lastChecked: now,
-            }
+            ...c,
+            isLive: anyAccountLive,
+            accounts: updatedAccounts,
+            lastChecked: now,
+          }
           : c,
       ),
     );
-  };
-
-  const applySharedPack = () => {
-    if (!packPreview) return;
-    setCreators(packPreview);
-    setPackPreview(null);
-    setPackNotice("Shared creator pack applied.");
-
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      params.delete("pack");
-      const search = params.toString();
-      window.history.replaceState(
-        {},
-        "",
-        `${window.location.pathname}${search ? `?${search}` : ""}`,
-      );
-    }
-  };
-
-  const handleSharePack = async () => {
-    if (typeof window === "undefined") return;
-
-    const payload = btoa(encodeURIComponent(JSON.stringify(creators)));
-    const shareUrl = `${window.location.origin}${window.location.pathname}?pack=${payload}`;
-
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareUrl);
-      } else {
-        const field = document.createElement("textarea");
-        field.value = shareUrl;
-        document.body.appendChild(field);
-        field.select();
-        document.execCommand("copy");
-        document.body.removeChild(field);
-      }
-      setShareFeedback("Share link copied to clipboard!");
-    } catch (error) {
-      console.error("Share pack copy failed", error);
-      setShareFeedback("Copy failed. You can still share the URL manually.");
-    }
-
-    setTimeout(() => {
-      setShareFeedback(null);
-    }, 3500);
   };
 
   const handleRefreshStatus = async () => {
@@ -1007,37 +945,61 @@ function App() {
     );
   };
 
-  // Render view mode toggle (list vs dropdown)
+  // Render view mode toggle
   const renderViewModeToggle = () => (
-    <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+    <div
+      style={{
+        display: "flex",
+        gap: "0.5rem",
+        marginBottom: "1rem",
+        flexWrap: "wrap",
+      }}
+    >
       <button
-        className={viewMode === "list" ? "active" : ""}
+        type="button"
+        className={`btn-secondary ${viewMode === "list" ? "view-active" : ""}`}
         onClick={() => setViewMode("list")}
         style={{
           padding: "0.5rem 1rem",
-          background: viewMode === "list" ? "var(--accent)" : "var(--card-bg)",
-          color: viewMode === "list" ? "white" : "var(--text)",
+          background: viewMode === "list" ? "var(--accent)" : "rgb(30, 41, 59)",
+          color: "white",
           border: "none",
-          borderRadius: "4px",
+          borderRadius: "6px",
           cursor: "pointer",
         }}
       >
         List View
       </button>
       <button
-        className={viewMode === "dropdown" ? "active" : ""}
+        type="button"
+        className={`btn-secondary ${viewMode === "dropdown" ? "view-active" : ""}`}
         onClick={() => setViewMode("dropdown")}
         style={{
           padding: "0.5rem 1rem",
           background:
-            viewMode === "dropdown" ? "var(--accent)" : "var(--card-bg)",
-          color: viewMode === "dropdown" ? "white" : "var(--text)",
+            viewMode === "dropdown" ? "var(--accent)" : "rgb(30, 41, 59)",
+          color: "white",
           border: "none",
-          borderRadius: "4px",
+          borderRadius: "6px",
           cursor: "pointer",
         }}
       >
         Dropdown View
+      </button>
+      <button
+        type="button"
+        className={`btn-secondary ${viewMode === "table" ? "view-active" : ""}`}
+        onClick={() => setViewMode("table")}
+        style={{
+          padding: "0.5rem 1rem",
+          background: viewMode === "table" ? "var(--accent)" : "rgb(30, 41, 59)",
+          color: "white",
+          border: "none",
+          borderRadius: "6px",
+          cursor: "pointer",
+        }}
+      >
+        Tabular View
       </button>
     </div>
   );
@@ -1122,7 +1084,7 @@ function App() {
       <div className="quick-add-group">
         <input
           className="quick-add-input"
-          placeholder="Quick add (e.g. adinross:kick:twitch:youtube:tiktok)"
+          placeholder="Quick add (e.g. adinross:kick:twitch:youtube:tiktok:instagram)"
           value={quickAddValue}
           onChange={(e) => setQuickAddValue(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleQuickAdd()}
@@ -1204,37 +1166,17 @@ function App() {
           >
             📡 Live check
           </button>
-          <button
-            className="btn-secondary"
-            onClick={handleSharePack}
-            title="Share this creator pack"
-          >
-            🔗 Share pack
-          </button>
           <button className="btn-add" onClick={() => setIsFormOpen(true)}>
             <span>+</span> Add Creator
           </button>
         </div>
-        {shareFeedback && <p className="share-feedback">{shareFeedback}</p>}
       </div>
 
-      {packPreview && (
-        <div className="pack-notice">
-          <p>
-            A creator pack was shared through the URL.{" "}
-            <button className="btn-add" onClick={applySharedPack}>
-              Apply pack
-            </button>
-          </p>
-        </div>
-      )}
-      {!packPreview && packNotice && (
-        <div className="pack-notice">{packNotice}</div>
-      )}
+
 
       {/* Main Content Area */}
       <div className="main-content-display" style={{ marginTop: "2rem" }}>
-        {viewMode === "list" ? (
+        {viewMode === "list" && (
           <>
             {/* List Mode with Headers */}
             {/* Starfireara Section */}
@@ -1333,7 +1275,9 @@ function App() {
                 ))}
             </div>
           </>
-        ) : (
+        )}
+
+        {viewMode === "dropdown" && (
           /* Dropdown Filter Mode */
           <div className="creator-grid">
             {creators
@@ -1360,6 +1304,106 @@ function App() {
                   onUpdateNote={handleUpdateNote}
                 />
               ))}
+          </div>
+        )}
+
+        {viewMode === "table" && (
+          <div className="table-container" style={{ overflowX: "auto" }}>
+            <table className="creator-table">
+              <thead>
+                <tr>
+                  <th>Creator</th>
+                  <th>Status</th>
+                  <th>Channels</th>
+                  <th>Note</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {creators
+                  .filter((c) => {
+                    const search = searchQuery.toLowerCase().replace(/\s+/g, "");
+                    const matchesSearch = c.name
+                      .toLowerCase()
+                      .replace(/\s+/g, "")
+                      .includes(search);
+                    const matchesCategory =
+                      !categoryFilter || c.category === categoryFilter;
+                    return matchesSearch && matchesCategory;
+                  })
+                  .map((creator) => (
+                    <tr key={creator.id}>
+                      <td style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <img
+                          src={creator.avatarUrl}
+                          alt=""
+                          style={{ width: "32px", height: "32px", borderRadius: "50%" }}
+                        />
+                        <div style={{ fontWeight: 600 }}>{creator.name}</div>
+                      </td>
+                      <td>
+                        {creator.isLive ? (
+                          <span className="badge-live">LIVE</span>
+                        ) : (
+                          <span className="badge-offline">Offline</span>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          {creator.accounts.map((acc) => (
+                            <a
+                              key={acc.id}
+                              href={acc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={`${acc.platform}: ${acc.username}`}
+                            >
+                              <img
+                                src={`https://www.google.com/s2/favicons?sz=32&domain=${new URL(acc.url).hostname}`}
+                                alt={acc.platform}
+                                style={{ width: "16px", height: "16px" }}
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          value={creator.note || ""}
+                          onChange={(e) => handleUpdateNote(creator.id, e.target.value)}
+                          placeholder="Add note..."
+                          className="table-note-input"
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "var(--text)",
+                            fontSize: "0.85rem",
+                            width: "100%",
+                            padding: "4px"
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button
+                            onClick={() => handleToggleFavorite(creator.id)}
+                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.2rem" }}
+                          >
+                            {creator.isFavorite ? "⭐" : "☆"}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCreator(creator.id)}
+                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.1rem" }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
