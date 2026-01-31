@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { Creator } from "../types";
+import { buildFallbackAvatar } from "../utils/avatar";
 
 interface CreatorCardProps {
   creator: Creator;
@@ -64,6 +65,10 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
   const [noteDraft, setNoteDraft] = useState(creator.note || "");
 
   const healthScore = useMemo(() => computeHealthScore(creator), [creator]);
+  const avatarSrc = useMemo(() => {
+    const trimmed = creator.avatarUrl?.trim();
+    return trimmed || buildFallbackAvatar(creator);
+  }, [creator]);
 
   useEffect(() => {
     setNoteDraft(creator.note || "");
@@ -231,11 +236,11 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
         </button>
       </div>
 
-      <img
-        src={creator.avatarUrl || "https://via.placeholder.com/80"}
-        alt={creator.name}
-        className="creator-avatar"
-      />
+        <img
+          src={avatarSrc}
+          alt={creator.name}
+          className="creator-avatar"
+        />
       <h3 className="creator-name">{creator.name}</h3>
       {creator.category && (
         <div

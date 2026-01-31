@@ -337,20 +337,6 @@ const DATA_VERSION = "7.0"; // Increment this to force reset localStorage
 const QUICK_ADD_DEFAULT_TAGS = ["LOVE THEIR CONTENT"];
 
 function App() {
-    // On mount, ensure every creator with a dicebear avatar gets a real avatar
-    useEffect(() => {
-      async function fixAllAvatars() {
-        for (const creator of creators) {
-          if (creator.avatarUrl && creator.avatarUrl.includes('dicebear.com')) {
-            const avatar = await grabAvatarFromAccounts(creator.accounts);
-            if (avatar && avatar !== creator.avatarUrl) {
-              setCreators((oldCreators) => oldCreators.map((c) => c.id === creator.id ? { ...c, avatarUrl: avatar } : c));
-            }
-          }
-        }
-      }
-      fixAllAvatars();
-    }, []);
   const [creators, setCreators] = useState<Creator[]>(() => {
     try {
       const savedVersion = localStorage.getItem("fav_creators_version");
@@ -373,6 +359,32 @@ function App() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "dropdown" | "table">("list");
   const [quickAddValue, setQuickAddValue] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fixAllAvatars = async () => {
+      for (const creator of creators) {
+        if (creator.avatarUrl?.includes("dicebear.com")) {
+          const avatar = await grabAvatarFromAccounts(creator.accounts);
+          if (avatar && avatar !== creator.avatarUrl && isMounted) {
+            setCreators((oldCreators) =>
+              oldCreators.map((c) =>
+                c.id === creator.id ? { ...c, avatarUrl: avatar } : c,
+              ),
+            );
+          }
+        }
+      }
+    };
+
+    fixAllAvatars();
+    const interval = setInterval(fixAllAvatars, 600000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [creators]);
 
   // Helper: Fetch with timeout to prevent hanging requests
   const fetchWithTimeout = async (
