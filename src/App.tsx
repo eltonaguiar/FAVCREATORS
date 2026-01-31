@@ -14,7 +14,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     lastChecked: Date.now() - 50000,
     addedAt: Date.now(),
-    category: "Streamers",
+    category: "Favorites",
     accounts: [
       {
         id: "1a",
@@ -1111,3 +1111,4 @@ function App() {
 }
 
 export default App;
+
