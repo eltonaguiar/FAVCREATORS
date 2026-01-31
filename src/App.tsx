@@ -3,6 +3,8 @@ import "./App.css";
 import type { Creator, SocialAccount, Platform } from "./types";
 import CreatorCard from "./components/CreatorCard";
 import CreatorForm from "./components/CreatorForm";
+import { googleSearchYoutubeChannel } from "./utils/googleSearch";
+import { extractYoutubeUsername } from "./utils/youtube";
 
 const INITIAL_DATA: Creator[] = [
   {
@@ -72,7 +74,7 @@ const INITIAL_DATA: Creator[] = [
         id: "zarthestar-youtube",
         platform: "youtube",
         username: "zarthestarcomedy",
-        url: "https://youtube.com/@zarthestarcomedy",
+        url: "https://www.youtube.com/@zarthestarcomedy",
         followers: "800",
         lastChecked: Date.now() - 1500,
       },
@@ -649,7 +651,7 @@ function App() {
     }
   }, []);
 
-  const handleQuickAdd = () => {
+  const handleQuickAdd = async () => {
     if (!quickAddValue.trim()) return;
 
     const parts = quickAddValue.split(":").map((p) => p.trim());
@@ -661,6 +663,17 @@ function App() {
     // Auto-find logic: if no platforms specified, search all major ones
     if (requestedPlatforms.length === 0) {
       requestedPlatforms = ["kick", "twitch", "youtube", "tiktok", "instagram"];
+    }
+
+    let youtubeSearchResult: string | null = null;
+    if (requestedPlatforms.includes("youtube")) {
+      try {
+        youtubeSearchResult = await googleSearchYoutubeChannel(
+          `${name} official youtube`,
+        );
+      } catch (error) {
+        console.warn("Quick add YouTube search failed", error);
+      }
     }
 
     const accounts: SocialAccount[] = [];
@@ -697,9 +710,12 @@ function App() {
           url: `https://twitch.tv/${cleanUsername}`,
         });
       } else if (platform === "youtube") {
+        const url = youtubeSearchResult || `https://youtube.com/@${cleanUsername}`;
+        const username = extractYoutubeUsername(url) || cleanUsername;
         accounts.push({
           ...baseAccount,
-          url: `https://youtube.com/@${cleanUsername}`,
+          url,
+          username,
         });
       } else if (platform === "tiktok") {
         accounts.push({
@@ -1088,9 +1104,9 @@ function App() {
           placeholder="Quick add (e.g. adinross:kick:twitch:youtube:tiktok:instagram)"
           value={quickAddValue}
           onChange={(e) => setQuickAddValue(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleQuickAdd()}
+          onKeyDown={(e) => e.key === "Enter" && void handleQuickAdd()}
         />
-        <button className="quick-add-btn" onClick={handleQuickAdd}>
+        <button className="quick-add-btn" onClick={() => void handleQuickAdd()}>
           Quick Add
         </button>
       </div>
