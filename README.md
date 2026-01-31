@@ -1,7 +1,16 @@
 # FAVCREATORS
 
+
 ## Live Demo
 Check out the live site: [https://eltonaguiar.github.io/FAVCREATORS/](https://eltonaguiar.github.io/FAVCREATORS/)
+
+## What is "Creator Health"?
+The **Creator Health** score is a composite metric shown for each creator. It is calculated based on:
+- **Total followers** across all linked accounts (higher followers = higher score, up to a cap)
+- **Live status** (currently live creators get a bonus)
+- **Pinned/Favorite** status (pinned or favorite creators get a bonus)
+
+The score ranges from 10 to 100 and is intended to give a quick sense of a creator's current popularity and engagement. It is not a medical or well-being metric.
 
 Welcome to the FAVCREATORS project!
 
