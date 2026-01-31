@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/', // Use root for GitHub Pages deployment
+  base: '/FAVCREATORS/', // Correct base for GitHub Pages project site
   build: {
     outDir: 'docs',
   },
