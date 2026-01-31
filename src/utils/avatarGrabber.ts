@@ -1,6 +1,8 @@
 import type { SocialAccount } from "../types";
+import { googleSearchImage } from "./googleSearch";
 
-const PROXY_PREFIX = "https://r.jina.ai/http://";
+const ALLORIGINS_PROXY = "https://api.allorigins.win/raw?url=";
+const THINGPROXY = "https://thingproxy.freeboard.io/fetch/";
 const PLATFORM_PRIORITY: SocialAccount["platform"][] = [
   "instagram",
   "youtube",
@@ -10,9 +12,10 @@ const PLATFORM_PRIORITY: SocialAccount["platform"][] = [
   "other",
 ];
 
-const buildProxyUrl = (targetUrl: string): string => {
-  const sanitized = targetUrl.replace(/^https?:\/\//i, "");
-  return `${PROXY_PREFIX}${sanitized}`;
+const buildProxyUrl = (targetUrl: string, proxyType: 'allorigins' | 'thingproxy'): string => {
+  if (proxyType === 'allorigins') return `${ALLORIGINS_PROXY}${encodeURIComponent(targetUrl)}`;
+  if (proxyType === 'thingproxy') return `${THINGPROXY}${targetUrl}`;
+  return targetUrl;
 };
 
 const fetchWithTimeout = async (url: string, timeoutMs = 9000): Promise<Response> => {
@@ -45,29 +48,85 @@ const extractOgImage = (html: string): string | null => {
 };
 
 const fetchAvatarFromUrl = async (url: string): Promise<string | null> => {
+  // Try direct fetch first
   try {
-    const proxyUrl = buildProxyUrl(url);
-    const response = await fetchWithTimeout(proxyUrl);
-    if (!response.ok) return null;
-    const html = await response.text();
-    return extractOgImage(html);
+    const response = await fetchWithTimeout(url);
+    if (response.ok) {
+      const html = await response.text();
+      const ogImage = extractOgImage(html);
+      if (ogImage) return ogImage;
+      console.warn("No og:image found (direct)", url);
+    } else {
+      console.warn("Direct fetch failed", url, response.status, response.statusText);
+    }
   } catch (error) {
-    console.warn("Avatar grabber failed for", url, error);
-    return null;
+    console.warn("Direct fetch error", url, error);
   }
-};
+  // Try allorigins.win proxy
+  try {
+    const proxyUrl = buildProxyUrl(url, 'allorigins');
+    const response = await fetchWithTimeout(proxyUrl);
+    if (response.ok) {
+      const html = await response.text();
+      const ogImage = extractOgImage(html);
+      if (ogImage) return ogImage;
+      console.warn("No og:image found (allorigins)", url);
+    } else {
+      console.warn("Allorigins proxy fetch failed", proxyUrl, response.status, response.statusText);
+    }
+  } catch (error) {
+    console.warn("Allorigins proxy error", url, error);
+  }
+  // Try thingproxy.freeboard.io as last resort
+  try {
+    const proxyUrl = buildProxyUrl(url, 'thingproxy');
+    const response = await fetchWithTimeout(proxyUrl);
+    if (response.ok) {
+      const html = await response.text();
+      const ogImage = extractOgImage(html);
+      if (ogImage) return ogImage;
+      console.warn("No og:image found (thingproxy)", url);
+    } else {
+      console.warn("Thingproxy fetch failed", proxyUrl, response.status, response.statusText);
+    }
+  } catch (error) {
+    console.warn("Thingproxy error", url, error);
+  }
+  return null;
+}
 
 export async function grabAvatarFromAccounts(
   accounts: SocialAccount[],
+  fallbackName?: string
 ): Promise<string | null> {
+  // 1. Try to get avatar from social media profiles
   for (const platform of PLATFORM_PRIORITY) {
     const platformAccounts = accounts.filter(
       (account) => account.platform === platform && account.url,
     );
     for (const account of platformAccounts) {
-      const avatar = await fetchAvatarFromUrl(account.url);
-      if (avatar) return avatar;
+      try {
+        const avatar = await fetchAvatarFromUrl(account.url);
+        if (avatar) return avatar;
+      } catch (err) {
+        console.warn(`Failed to fetch avatar from ${account.platform}`, err);
+      }
     }
   }
+
+  // 2. If no avatar found and we have a name, try Google Image Search failover
+  if (fallbackName) {
+    console.log(`No avatar found for ${fallbackName} from social links. Trying Google Image failover...`);
+    try {
+      const googleAvatar = await googleSearchImage(fallbackName);
+      if (googleAvatar) {
+        console.log(`Successfully found failover avatar for ${fallbackName}:`, googleAvatar);
+        return googleAvatar;
+      }
+    } catch (err) {
+      console.warn("Google Image failover failed", err);
+    }
+  }
+
   return null;
 }

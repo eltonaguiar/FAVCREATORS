@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import "./App.css";
 import type { Creator, SocialAccount, Platform } from "./types";
 import CreatorCard from "./components/CreatorCard";
@@ -7,6 +7,216 @@ import { googleSearchYoutubeChannel } from "./utils/googleSearch";
 import { grabAvatarFromAccounts } from "./utils/avatarGrabber";
 import { extractYoutubeUsername } from "./utils/youtube";
 import { ensureAvatarForCreators, ensureAvatarUrl } from "./utils/avatar";
+
+const APPCORS_FETCH_TIMEOUT = 8000;
+const PROXY_FETCH_TIMEOUT = 10000;
+
+const fetchWithTimeout = async (
+  url: string,
+  timeoutMs: number = APPCORS_FETCH_TIMEOUT,
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    throw e;
+  }
+};
+
+const fetchViaProxy = async (
+  targetUrl: string,
+  retries: number = 2,
+): Promise<string | null> => {
+  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(
+    targetUrl,
+  )}`;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+      }
+      const response = await fetchWithTimeout(proxyUrl, PROXY_FETCH_TIMEOUT);
+      if (response.ok) {
+        const text = await response.text();
+        if (text && text.length > 50) {
+          return text;
+        }
+      }
+    } catch (e) {
+      console.warn(`Proxy fetch attempt ${attempt + 1} failed for ${targetUrl}`, e);
+      if (attempt === retries) {
+        return null;
+      }
+    }
+  }
+  return null;
+};
+
+const checkLiveStatus = async (
+  platform: string,
+  username: string,
+): Promise<boolean | null> => {
+  if (platform === "twitch") {
+    try {
+      const response = await fetchWithTimeout(
+        `https://decapi.me/twitch/uptime/${username}`,
+        5000,
+      );
+      if (response.ok) {
+        const text = (await response.text()).toLowerCase().trim();
+        if (text.includes("offline") || text.includes("not found")) return false;
+        if (/\d+[hms]/.test(text) || /\d+\s*(hour|minute|second)/i.test(text))
+          return true;
+        if (text.length > 0 && text.length < 50 && !text.includes("error"))
+          return true;
+      }
+    } catch (e) {
+      console.warn("Twitch DecAPI check failed, trying fallback", e);
+    }
+
+    try {
+      const html = await fetchViaProxy(`https://www.twitch.tv/${username}`);
+      if (html) {
+        if (
+          html.includes('"isLiveBroadcast":true') ||
+          html.includes('"isLiveBroadcast": true') ||
+          html.includes('"isLive":true') ||
+          html.includes('"isLive": true')
+        )
+          return true;
+        if (
+          html.includes('"isLive":false') ||
+          html.includes('"isLive": false') ||
+          html.includes('offline_embed_player') ||
+          html.includes("channel-status-info--offline")
+        )
+          return false;
+      }
+    } catch (e) {
+      console.warn("Twitch proxy check failed", e);
+    }
+
+    return null;
+  }
+
+  if (platform === "kick") {
+    try {
+      const apiResponse = await fetchViaProxy(
+        `https://kick.com/api/v2/channels/${username}`,
+      );
+      if (apiResponse) {
+        if (apiResponse.includes('"is_live":true')) return true;
+        if (apiResponse.includes('"is_live":false')) return false;
+        if (apiResponse.includes('"livestream":null')) return false;
+
+        try {
+          const data = JSON.parse(apiResponse);
+          if (data.livestream && typeof data.livestream === "object") {
+            return data.livestream.is_live === true;
+          }
+          if (data.livestream === null) {
+            return false;
+          }
+        } catch {
+          // Not JSON
+        }
+      }
+    } catch (e) {
+      console.warn("Kick API check failed", e);
+    }
+
+    try {
+      const pageHtml = await fetchViaProxy(`https://kick.com/${username}`);
+      if (pageHtml) {
+        if (pageHtml.includes('"is_live":true')) return true;
+        if (
+          pageHtml.includes('"is_live":false') ||
+          pageHtml.includes('"livestream":null')
+        )
+          return false;
+      }
+    } catch (e) {
+      console.warn("Kick page scrape failed", e);
+    }
+
+    return null;
+  }
+
+  if (platform === "tiktok") {
+    try {
+      const html = await fetchViaProxy(
+        `https://www.tiktok.com/@${username}/live`,
+      );
+      if (html) {
+        const isLiveIndicators = [
+          '"status":4',
+          '"liveRoomUserInfo"',
+          '"LiveRoom"',
+          "room_id",
+          '"isLiveStreaming":true',
+        ];
+        const isOfflineIndicators = [
+          "LIVE_UNAVAILABLE",
+          '"status":2',
+          "This LIVE has ended",
+          "currently unavailable",
+        ];
+
+        for (const indicator of isLiveIndicators) {
+          if (html.includes(indicator)) {
+            let hasOfflineIndicator = false;
+            for (const offIndicator of isOfflineIndicators) {
+              if (html.includes(offIndicator)) {
+                hasOfflineIndicator = true;
+                break;
+              }
+            }
+            if (!hasOfflineIndicator) return true;
+          }
+        }
+
+        for (const indicator of isOfflineIndicators) {
+          if (html.includes(indicator)) return false;
+        }
+      }
+    } catch (e) {
+      console.warn("TikTok check failed", e);
+    }
+
+    return null;
+  }
+
+  if (platform === "youtube") {
+    try {
+      const html = await fetchViaProxy(
+        `https://www.youtube.com/@${username}/live`,
+      );
+      if (html) {
+        if (
+          html.includes('"isLive":true') ||
+          html.includes('"isLiveBroadcast":true') ||
+          html.includes('"isLiveNow":true') ||
+          html.includes("LIVE NOW") ||
+          html.includes('"liveBadge"')
+        )
+          return true;
+        if (html.includes('"isLive":false') || html.includes("No live stream"))
+          return false;
+      }
+    } catch (e) {
+      console.warn("YouTube check failed", e);
+    }
+
+    return null;
+  }
+
+  return null;
+};
 
 const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
   {
@@ -35,6 +245,21 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         url: "https://instagram.com/mrbeast",
         followers: "61.1M",
         lastChecked: Date.now() - 52000,
+      },
+      {
+        id: "mrbeast-linktree",
+        platform: "other",
+        username: "linktr.ee/mrbeast",
+        url: "https://linktr.ee/mrbeast",
+        lastChecked: Date.now() - 50000,
+      },
+      {
+        id: "mrbeast-x",
+        platform: "other",
+        username: "MrBeast",
+        url: "https://twitter.com/MrBeast",
+        followers: "33.9M",
+        lastChecked: Date.now() - 50000,
       },
     ],
   },
@@ -77,6 +302,13 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         platform: "spotify",
         username: "wtfprestonlive",
         url: "https://open.spotify.com/artist/5Ho2sjbNmEkALWz8hbNBUH",
+        lastChecked: Date.now() - 3000,
+      },
+      {
+        id: "wtfpreston-applemusic",
+        platform: "other",
+        username: "WTFPreston",
+        url: "https://music.apple.com/us/artist/wtfpreston/1851052017",
         lastChecked: Date.now() - 3000,
       },
     ],
@@ -123,6 +355,20 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         followers: "800",
         lastChecked: Date.now() - 1500,
       },
+      {
+        id: "zarthestar-linktree",
+        platform: "other",
+        username: "linktr.ee/zarthestar",
+        url: "https://linktr.ee/zarthestar",
+        lastChecked: Date.now() - 1500,
+      },
+      {
+        id: "zarthestar-msha",
+        platform: "other",
+        username: "msha.ke/zarthestar",
+        url: "https://msha.ke/zarthestar",
+        lastChecked: Date.now() - 1500,
+      },
     ],
   },
   {
@@ -152,6 +398,13 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         followers: "12M",
         lastChecked: Date.now() - 700,
       },
+      {
+        id: "dream-linktree",
+        platform: "other",
+        username: "linktr.ee/dream",
+        url: "https://linktr.ee/dream",
+        lastChecked: Date.now() - 650,
+      },
     ],
   },
   {
@@ -174,6 +427,20 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         followers: "5.3M",
         lastChecked: Date.now() - 36000,
       },
+      {
+        id: "tyler1-linktree",
+        platform: "other",
+        username: "linktr.ee/loltyler1",
+        url: "https://linktr.ee/loltyler1",
+        lastChecked: Date.now() - 28000,
+      },
+      {
+        id: "tyler1-site",
+        platform: "other",
+        username: "loltyler1.com",
+        url: "https://www.loltyler1.com",
+        lastChecked: Date.now() - 28000,
+      },
     ],
   },
   {
@@ -194,6 +461,13 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         url: "https://www.twitch.tv/allecakes",
         followers: "1.2M",
         lastChecked: Date.now() - 31000,
+      },
+      {
+        id: "allecakes-linktree",
+        platform: "other",
+        username: "linktr.ee/allecakes",
+        url: "https://linktr.ee/allecakes",
+        lastChecked: Date.now() - 30000,
       },
     ],
   },
@@ -224,6 +498,13 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         followers: "4.6M",
         lastChecked: Date.now() - 47000,
       },
+      {
+        id: "adinross-linktree",
+        platform: "other",
+        username: "linktr.ee/adinrosss",
+        url: "https://linktr.ee/adinrosss",
+        lastChecked: Date.now() - 47000,
+      },
     ],
   },
   {
@@ -248,6 +529,13 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         isLive: true,
         lastChecked: Date.now() - 4000,
       },
+      {
+        id: "starfireara-linktree",
+        platform: "other",
+        username: "linktr.ee/starfiire",
+        url: "https://linktr.ee/starfiire",
+        lastChecked: Date.now() - 4000,
+      },
     ],
   },
   {
@@ -267,6 +555,13 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         username: "mkbhd",
         url: "https://youtube.com/@mkbhd",
         followers: "19.6M",
+        lastChecked: Date.now() - 95000,
+      },
+      {
+        id: "mkbhd-linktree",
+        platform: "other",
+        username: "linktr.ee/mkbhd",
+        url: "https://linktr.ee/mkbhd",
         lastChecked: Date.now() - 95000,
       },
     ],
@@ -289,6 +584,13 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         followers: "11.4M",
         lastChecked: Date.now() - 28000,
       },
+      {
+        id: "tfue-linktree",
+        platform: "other",
+        username: "linktr.ee/tfue_live",
+        url: "https://linktr.ee/tfue_live",
+        lastChecked: Date.now() - 28000,
+      },
     ],
   },
   {
@@ -309,6 +611,13 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         followers: "10.9M",
         lastChecked: Date.now() - 38000,
       },
+      {
+        id: "shroud-linktree",
+        platform: "other",
+        username: "linktr.ee/shroud",
+        url: "https://linktr.ee/shroud",
+        lastChecked: Date.now() - 38000,
+      },
     ],
   },
   {
@@ -327,6 +636,13 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         username: "pokimane",
         url: "https://www.twitch.tv/pokimane",
         followers: "9.3M",
+        lastChecked: Date.now() - 48000,
+      },
+      {
+        id: "pokimane-linktree",
+        platform: "other",
+        username: "linktr.ee/pokimane",
+        url: "https://linktr.ee/pokimane",
         lastChecked: Date.now() - 48000,
       },
     ],
@@ -359,12 +675,29 @@ function App() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "dropdown" | "table">("list");
   const [quickAddValue, setQuickAddValue] = useState("");
+  const creatorsRef = useRef<Creator[]>(creators);
+
+  const realAvatarCount = useMemo(
+    () =>
+      creators.filter(
+        (creator) =>
+          creator.avatarUrl &&
+          !creator.avatarUrl.includes("dicebear.com"),
+      ).length,
+    [creators],
+  );
+
+  useEffect(() => {
+    creatorsRef.current = creators;
+  }, [creators]);
 
   useEffect(() => {
     let isMounted = true;
 
     const fixAllAvatars = async () => {
-      for (const creator of creators) {
+      const snapshot = creatorsRef.current;
+      for (const creator of snapshot) {
+        if (!isMounted) return;
         if (creator.avatarUrl?.includes("dicebear.com")) {
           const avatar = await grabAvatarFromAccounts(creator.accounts);
           if (avatar && avatar !== creator.avatarUrl && isMounted) {
@@ -384,247 +717,7 @@ function App() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [creators]);
-
-  // Helper: Fetch with timeout to prevent hanging requests
-  const fetchWithTimeout = async (
-    url: string,
-    timeoutMs: number = 8000,
-  ): Promise<Response> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      return response;
-    } catch (e) {
-      clearTimeout(timeoutId);
-      throw e;
-    }
-  };
-
-  // Helper: Fetch via CORS proxy with retry logic
-  const fetchViaProxy = async (
-    targetUrl: string,
-    retries: number = 2,
-  ): Promise<string | null> => {
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        // Add small delay between retries
-        if (attempt > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-        }
-
-        const response = await fetchWithTimeout(proxyUrl, 10000);
-        if (response.ok) {
-          const text = await response.text();
-          if (text && text.length > 50) {
-            return text;
-          }
-        }
-      } catch (e) {
-        console.warn(
-          `Proxy fetch attempt ${attempt + 1} failed for ${targetUrl}`,
-          e,
-        );
-        if (attempt === retries) {
-          return null;
-        }
-      }
-    }
-    return null;
-  };
-
-  const checkLiveStatus = async (
-    platform: string,
-    username: string,
-  ): Promise<boolean | null> => {
-    // Returns: true = live, false = offline, null = check failed (unknown)
-
-    // 1. Twitch Check (Real via DecAPI - multiple endpoints)
-    if (platform === "twitch") {
-      // Try DecAPI uptime endpoint
-      try {
-        const response = await fetchWithTimeout(
-          `https://decapi.me/twitch/uptime/${username}`,
-          5000,
-        );
-        if (response.ok) {
-          const text = (await response.text()).toLowerCase().trim();
-          // DecAPI returns the uptime if live, or specific messages if offline
-          if (text.includes("offline")) return false;
-          if (text.includes("not found") || text.includes("does not exist"))
-            return false;
-          // If we get a time format (e.g., "2h 30m"), they're live
-          if (/\d+[hms]/.test(text) || /\d+\s*(hour|minute|second)/i.test(text))
-            return true;
-          // Any other non-error response with reasonable length likely means live
-          if (text.length > 0 && text.length < 50 && !text.includes("error"))
-            return true;
-        }
-      } catch (e) {
-        console.warn("Twitch DecAPI check failed, trying fallback", e);
-      }
-
-      // Fallback: Try Twitch's public API via proxy
-      try {
-        const html = await fetchViaProxy(`https://www.twitch.tv/${username}`);
-        if (html) {
-          // Check for live indicators in the page
-          if (
-            html.includes('"isLiveBroadcast":true') ||
-            html.includes('"isLiveBroadcast": true')
-          )
-            return true;
-          if (html.includes('"isLive":true') || html.includes('"isLive": true'))
-            return true;
-          // Check for offline indicators
-          if (
-            html.includes('"isLive":false') ||
-            html.includes('"isLive": false')
-          )
-            return false;
-          if (
-            html.includes("offline_embed_player") ||
-            html.includes("channel-status-info--offline")
-          )
-            return false;
-        }
-      } catch (e) {
-        console.warn("Twitch proxy check failed", e);
-      }
-
-      return null; // Check failed, status unknown
-    }
-
-    // 2. Kick Check (Real via Proxy with multiple detection methods)
-    if (platform === "kick") {
-      try {
-        const apiResponse = await fetchViaProxy(
-          `https://kick.com/api/v2/channels/${username}`,
-        );
-        if (apiResponse) {
-          // First try: Check raw string for is_live (most reliable)
-          if (apiResponse.includes('"is_live":true')) {
-            console.log(`Kick: ${username} is LIVE (string match)`);
-            return true;
-          }
-          if (apiResponse.includes('"is_live":false')) {
-            console.log(`Kick: ${username} is OFFLINE (string match)`);
-            return false;
-          }
-          // Also check for livestream:null which means offline
-          if (apiResponse.includes('"livestream":null')) {
-            console.log(`Kick: ${username} is OFFLINE (no livestream)`);
-            return false;
-          }
-
-          // Second try: Parse JSON for structured check
-          try {
-            const data = JSON.parse(apiResponse);
-            if (data.livestream && typeof data.livestream === "object") {
-              const isLive = data.livestream.is_live === true;
-              console.log(
-                `Kick: ${username} is ${isLive ? "LIVE" : "OFFLINE"} (JSON parse)`,
-              );
-              return isLive;
-            }
-            if (data.livestream === null) {
-              console.log(`Kick: ${username} is OFFLINE (JSON null)`);
-              return false;
-            }
-          } catch {
-            // JSON parse failed, but we already tried string matching
-          }
-        }
-      } catch (e) {
-        console.warn("Kick API check failed", e);
-      }
-
-      // Fallback: page scraping (only if API failed completely)
-      try {
-        const pageHtml = await fetchViaProxy(`https://kick.com/${username}`);
-        if (pageHtml) {
-          if (pageHtml.includes('"is_live":true')) {
-            console.log(`Kick: ${username} is LIVE (page scrape)`);
-            return true;
-          }
-          if (
-            pageHtml.includes('"is_live":false') ||
-            pageHtml.includes('"livestream":null')
-          ) {
-            console.log(`Kick: ${username} is OFFLINE (page scrape)`);
-            return false;
-          }
-        }
-      } catch (e) {
-        console.warn("Kick page scrape failed", e);
-      }
-
-      return null; // Check failed, status unknown
-    }
-
-    // 3. TikTok Check (Stricter: avoid story false positives)
-    if (platform === "tiktok") {
-      try {
-        const html = await fetchViaProxy(
-          `https://www.tiktok.com/@${username}/live`,
-        );
-        if (html) {
-          // Stricter: require both a <video> element and a live badge, and no story/offline markers
-          const hasVideo = /<video[\s>]/i.test(html);
-          const hasLiveBadge = /data-e2e="live-badge"/i.test(html) || /LIVE NOW/i.test(html) || /"isLive":true/.test(html);
-          const isStory = /story/i.test(html);
-          const isOffline = /LIVE_UNAVAILABLE|"status":2|This LIVE has ended|currently unavailable/i.test(html);
-
-          // Only return true if video and live badge, and not a story or offline
-          if (hasVideo && hasLiveBadge && !isStory && !isOffline) {
-            return true;
-          }
-          // If definite offline markers
-          if (isOffline) return false;
-        }
-      } catch (e) {
-        console.warn("TikTok check failed", e);
-      }
-
-      return null; // Check failed, status unknown
-    }
-
-    // 4. YouTube Check (via proxy - basic support)
-    if (platform === "youtube") {
-      try {
-        const html = await fetchViaProxy(
-          `https://www.youtube.com/@${username}/live`,
-        );
-        if (html) {
-          if (
-            html.includes('"isLive":true') ||
-            html.includes('"isLiveBroadcast":true')
-          )
-            return true;
-          if (html.includes('"isLiveNow":true')) return true;
-          // Check for live badge in page
-          if (html.includes("LIVE NOW") || html.includes('"liveBadge"'))
-            return true;
-          if (
-            html.includes('"isLive":false') ||
-            html.includes("No live stream")
-          )
-            return false;
-        }
-      } catch (e) {
-        console.warn("YouTube check failed", e);
-      }
-
-      return null; // Check failed, status unknown
-    }
-
-    // Platform not supported for live checking
-    return null;
-  };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("fav_creators", JSON.stringify(creators));
@@ -632,9 +725,9 @@ function App() {
 
   // No longer checking for shared pack in URL
 
-  const updateAllLiveStatuses = async () => {
+  const updateAllLiveStatuses = useCallback(async () => {
     // Get current creators
-    const currentCreators = [...creators];
+    const currentCreators = [...creatorsRef.current];
     const updatedCreators: Creator[] = [];
 
     // Process creators sequentially with small delays to avoid overwhelming proxy
@@ -665,7 +758,7 @@ function App() {
     }
 
     setCreators(updatedCreators);
-  };
+  }, []);
 
   // Auto-check live status on mount
   useEffect(() => {
@@ -679,24 +772,28 @@ function App() {
       clearTimeout(timer);
       clearInterval(interval);
     };
-  }, []);
+  }, [updateAllLiveStatuses]);
 
   // Data Migration: Ensure all existing accounts have follower counts
   useEffect(() => {
-    let changed = false;
-    const migrated = creators.map((c) => {
-      const newAccounts = c.accounts.map((acc) => {
+    const baseCreators = creatorsRef.current;
+    let needsUpdate = false;
+
+    const migrated = baseCreators.map((creator) => {
+      let creatorUpdated = false;
+      const newAccounts = creator.accounts.map((acc) => {
         if (!acc.followers) {
-          changed = true;
+          creatorUpdated = true;
+          needsUpdate = true;
           const randomFollowers = (Math.random() * 10 + 1).toFixed(1) + "M";
           return { ...acc, followers: randomFollowers };
         }
         return acc;
       });
-      return { ...c, accounts: newAccounts };
+      return creatorUpdated ? { ...creator, accounts: newAccounts } : creator;
     });
 
-    if (changed) {
+    if (needsUpdate) {
       setCreators(ensureAvatarForCreators(migrated));
     }
   }, []);
@@ -783,7 +880,7 @@ function App() {
     let fetchedAvatar: string | null = null;
     if (accounts.length > 0) {
       try {
-        fetchedAvatar = await grabAvatarFromAccounts(accounts);
+        fetchedAvatar = await grabAvatarFromAccounts(accounts, name);
       } catch (error) {
         console.warn("Avatar grabber failed after quick add", error);
       }
@@ -1022,6 +1119,26 @@ function App() {
     );
   };
 
+  // Refresh avatar for a single creator
+  const handleRefreshAvatar = async (id: string) => {
+    const creator = creators.find((c) => c.id === id);
+    if (!creator) return;
+    const avatar = await grabAvatarFromAccounts(creator.accounts, creator.name);
+    setCreators((oldCreators) =>
+      oldCreators.map((c) =>
+        c.id === id
+          ? {
+            ...c,
+            avatarUrl:
+              avatar && !avatar.includes("dicebear.com")
+                ? avatar
+                : `https://api.dicebear.com/7.x/pixel-art/svg?seed=${c.name}`,
+          }
+          : c
+      )
+    );
+  };
+
   // Render view mode toggle
   const renderViewModeToggle = () => (
     <div
@@ -1156,6 +1273,12 @@ function App() {
           </div>
         </div>
       </header>
+      <div className="avatar-status" aria-live="polite">
+        <span>Real avatars fetched:</span>
+        <strong>{realAvatarCount}</strong>
+        <span> of </span>
+        <strong>{creators.length}</strong>
+      </div>
 
       {renderViewModeToggle()}
 
@@ -1278,6 +1401,7 @@ function App() {
                     onCheckStatus={handleCheckCreatorStatus}
                     onTogglePin={handleTogglePin}
                     onUpdateNote={handleUpdateNote}
+                    onRefreshAvatar={handleRefreshAvatar}
                   />
                 </div>
               ))}
@@ -1307,6 +1431,7 @@ function App() {
                     onCheckStatus={handleCheckCreatorStatus}
                     onTogglePin={handleTogglePin}
                     onUpdateNote={handleUpdateNote}
+                    onRefreshAvatar={handleRefreshAvatar}
                   />
                 </div>
               ))}
@@ -1349,6 +1474,7 @@ function App() {
                     onCheckStatus={handleCheckCreatorStatus}
                     onTogglePin={handleTogglePin}
                     onUpdateNote={handleUpdateNote}
+                    onRefreshAvatar={handleRefreshAvatar}
                   />
                 ))}
             </div>
@@ -1380,6 +1506,7 @@ function App() {
                   onCheckStatus={handleCheckCreatorStatus}
                   onTogglePin={handleTogglePin}
                   onUpdateNote={handleUpdateNote}
+                  onRefreshAvatar={handleRefreshAvatar}
                 />
               ))}
           </div>

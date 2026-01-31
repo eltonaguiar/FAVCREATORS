@@ -67,6 +67,20 @@ h1 {
   flex-wrap: wrap;
 }
 
+.avatar-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.avatar-status strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .search-bar {
   flex: 1;
   min-width: 280px;
@@ -430,6 +444,42 @@ h1 {
   transition: all 0.2s ease;
   position: relative;
 }
+
+ .account-summary-tooltip {
+   position: absolute;
+   bottom: calc(100% + 8px);
+   left: 0;
+   min-width: 220px;
+   max-width: 280px;
+   background: rgba(15, 23, 42, 0.95);
+   border: 1px solid rgba(255, 255, 255, 0.1);
+   border-radius: 10px;
+   padding: 0.75rem;
+   font-size: 0.75rem;
+   color: var(--text-muted);
+   opacity: 0;
+   visibility: hidden;
+   pointer-events: none;
+   transition: opacity 0.2s ease, transform 0.2s ease;
+   transform: translateY(6px);
+   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+   z-index: 10;
+ }
+
+ .account-link:hover .account-summary-tooltip,
+ .account-link:focus-within .account-summary-tooltip {
+   opacity: 1;
+   visibility: visible;
+   transform: translateY(0);
+ }
+
+ .account-summary-tooltip[data-state="loading"] {
+   color: #e0f2fe;
+ }
+
+ .account-summary-tooltip[data-state="error"] {
+   color: #fecaca;
+ }
 
 .account-info {
   display: flex;

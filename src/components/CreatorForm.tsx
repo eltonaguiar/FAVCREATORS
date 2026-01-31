@@ -110,7 +110,7 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
       let resolvedAvatar = avatarUrl.trim();
       if (!resolvedAvatar && accounts.length > 0) {
         try {
-          const fetched = await grabAvatarFromAccounts(accounts);
+          const fetched = await grabAvatarFromAccounts(accounts, name);
           if (fetched) resolvedAvatar = fetched;
         } catch (error) {
           console.warn("Avatar grabber failed", error);

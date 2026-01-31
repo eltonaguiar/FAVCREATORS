@@ -16,7 +16,7 @@ export function setupProxy(server: ViteDevServer) {
       const text = await fetchRes.text();
       res.setHeader('Content-Type', 'text/html');
       res.end(text);
-    } catch (e) {
+    } catch {
       res.statusCode = 500;
       res.end('Proxy error');
     }

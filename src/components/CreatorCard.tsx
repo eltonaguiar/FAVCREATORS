@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
-import type { Creator } from "../types";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { Creator, SocialAccount } from "../types";
 import { buildFallbackAvatar } from "../utils/avatar";
+import { fetchSocialSummary } from "../utils/socialSummary";
 
 interface CreatorCardProps {
   creator: Creator;
@@ -10,6 +11,7 @@ interface CreatorCardProps {
   onCheckStatus: (id: string) => Promise<void>;
   onTogglePin: (id: string) => void;
   onUpdateNote: (id: string, note: string) => void;
+  onRefreshAvatar: (id: string) => Promise<void>;
 }
 
 const formatRelativeTime = (timestamp?: number) => {
@@ -52,6 +54,11 @@ const computeHealthScore = (creator: Creator) => {
   return Math.min(100, Math.max(10, Math.round(score)));
 };
 
+type SummaryEntry = {
+  status: "idle" | "loading" | "done" | "error";
+  text?: string;
+};
+
 const CreatorCard: React.FC<CreatorCardProps> = ({
   creator,
   onToggleFavorite,
@@ -62,7 +69,14 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
   onUpdateNote,
 }) => {
   const [checking, setChecking] = useState(false);
-  const [noteDraft, setNoteDraft] = useState(creator.note || "");
+  const [accountSummaries, setAccountSummaries] = useState<Record<string, SummaryEntry>>({});
+  const [refreshingAvatar, setRefreshingAvatar] = useState(false);
+    const handleRefreshAvatar = async () => {
+      setRefreshingAvatar(true);
+      await onRefreshAvatar(creator.id);
+      setRefreshingAvatar(false);
+    };
+  const isMountedRef = useRef(true);
 
   const healthScore = useMemo(() => computeHealthScore(creator), [creator]);
   const avatarSrc = useMemo(() => {
@@ -71,8 +85,10 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
   }, [creator]);
 
   useEffect(() => {
-    setNoteDraft(creator.note || "");
-  }, [creator.note]);
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const getPlatformIcon = (platform: string) => {
     switch (platform) {
@@ -166,6 +182,39 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
     setChecking(false);
   };
 
+  const handleAccountHover = (account: SocialAccount) => {
+    if (!account.url) return;
+    const current = accountSummaries[account.id];
+    if (current && (current.status === "loading" || current.status === "done")) {
+      return;
+    }
+    setAccountSummaries((prev) => ({
+      ...prev,
+      [account.id]: { status: "loading", text: prev[account.id]?.text },
+    }));
+    fetchSocialSummary(account.url)
+      .then((summary) => {
+        if (!isMountedRef.current) return;
+        setAccountSummaries((prev) => ({
+          ...prev,
+          [account.id]: {
+            status: "done",
+            text: summary ?? "No overview found yet.",
+          },
+        }));
+      })
+      .catch(() => {
+        if (!isMountedRef.current) return;
+        setAccountSummaries((prev) => ({
+          ...prev,
+          [account.id]: {
+            status: "error",
+            text: "Research unavailable right now.",
+          },
+        }));
+      });
+  };
+
   return (
     <div className="creator-card">
       {creator.isLive && (
@@ -234,6 +283,21 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
         >
           🗑️
         </button>
+
+        <button
+          onClick={handleRefreshAvatar}
+          disabled={refreshingAvatar}
+          title="Refresh avatar from social platforms"
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontSize: "1rem",
+            opacity: refreshingAvatar ? 0.3 : 0.6,
+          }}
+        >
+          {refreshingAvatar ? "🔄" : "🖼️"}
+        </button>
       </div>
 
         <img
@@ -282,47 +346,11 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
         <textarea
           id={`note-${creator.id}`}
           className="creator-note"
-          value={noteDraft}
+          value={creator.note || ""}
           placeholder="Add context, reminders, or how you met them"
-          onChange={(e) => setNoteDraft(e.target.value)}
-          onBlur={() => {
-            if ((creator.note || "") !== noteDraft) {
-              onUpdateNote(creator.id, noteDraft);
-            }
-          }}
+          onChange={(e) => onUpdateNote(creator.id, e.target.value)}
           rows={3}
         />
-        <button
-          className="btn-save-note"
-          onClick={() => {
-            if ((creator.note || "") !== noteDraft) {
-              onUpdateNote(creator.id, noteDraft);
-            }
-          }}
-          title="Save note"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-            marginTop: "6px",
-            padding: "4px 10px",
-            fontSize: "0.8rem",
-            background:
-              (creator.note || "") !== noteDraft
-                ? "var(--accent)"
-                : "var(--card-bg)",
-            color:
-              (creator.note || "") !== noteDraft
-                ? "white"
-                : "var(--text-muted)",
-            border: "1px solid var(--border)",
-            borderRadius: "4px",
-            cursor: "pointer",
-            opacity: (creator.note || "") !== noteDraft ? 1 : 0.6,
-          }}
-        >
-          💾 Save Note
-        </button>
       </div>
 
       <div className="creator-last-checked">
@@ -330,51 +358,70 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
       </div>
 
       <div className="accounts-list">
-        {creator.accounts.map((account) => (
-          <div key={account.id} className={`account-link ${account.platform}`}>
-            <a
-              href={account.url}
-              target="_blank"
-              rel="noopener noreferrer"
+        {creator.accounts.map((account) => {
+          const summaryEntry = accountSummaries[account.id];
+          const tooltipMessage =
+            summaryEntry?.status === "loading"
+              ? "Gathering summary..."
+              : summaryEntry?.text ||
+                "Hover to fetch a brief public summary of this profile.";
+          return (
+            <div
+              key={account.id}
+              className={`account-link ${account.platform}`}
+            onMouseEnter={() => handleAccountHover(account)}
+          >
+              <a
+                href={account.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onFocus={() => handleAccountHover(account)}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.4rem",
-                textDecoration: "none",
-                color: "inherit",
-              }}
-            >
-              {getPlatformIcon(account.platform)}
-              <div className="account-info">
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
-                >
-                  <span>
-                    {account.platform === "other"
-                      ? account.username
-                      : `@${account.username}`}
-                  </span>
-                  {account.isLive && <div className="account-live-dot"></div>}
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+              >
+                {getPlatformIcon(account.platform)}
+                <div className="account-info">
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                  >
+                    <span>
+                      {account.platform === "other"
+                        ? account.username
+                        : `@${account.username}`}
+                    </span>
+                    {account.isLive && <div className="account-live-dot"></div>}
+                  </div>
+                  {account.followers && (
+                    <span className="follower-count">
+                      {account.followers} followers
+                    </span>
+                  )}
                 </div>
-                {account.followers && (
-                  <span className="follower-count">
-                    {account.followers} followers
-                  </span>
-                )}
+              </a>
+              <button
+                className="btn-remove-account"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onRemoveAccount(creator.id, account.id);
+                }}
+                title="Remove account"
+              >
+                ✕
+              </button>
+              <div
+                className="account-summary-tooltip"
+                data-state={summaryEntry?.status || "idle"}
+              >
+                {tooltipMessage}
               </div>
-            </a>
-            <button
-              className="btn-remove-account"
-              onClick={(e) => {
-                e.preventDefault();
-                onRemoveAccount(creator.id, account.id);
-              }}
-              title="Remove account"
-            >
-              ✕
-            </button>
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
