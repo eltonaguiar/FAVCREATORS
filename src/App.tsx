@@ -763,6 +763,121 @@ function App() {
     linkElement.click();
   };
 
+  // Cookie helpers for settings persistence
+  const setCookie = (name: string, value: string, days: number = 365) => {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Strict`;
+  };
+
+  const getCookie = (name: string): string | null => {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(";");
+    for (let c of ca) {
+      c = c.trim();
+      if (c.indexOf(nameEQ) === 0) {
+        return decodeURIComponent(c.substring(nameEQ.length));
+      }
+    }
+    return null;
+  };
+
+  // Save all settings to cookie
+  const handleSaveSettings = () => {
+    const settings = {
+      creators,
+      categoryFilter,
+      viewMode,
+      searchQuery,
+      savedAt: Date.now(),
+    };
+    try {
+      setCookie("favcreators_settings", JSON.stringify(settings));
+      alert("Settings saved to browser cookies!");
+    } catch (e) {
+      console.error("Failed to save settings:", e);
+      alert("Failed to save settings. Try exporting to JSON instead.");
+    }
+  };
+
+  // Load settings from cookie on mount
+  useEffect(() => {
+    const savedSettings = getCookie("favcreators_settings");
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings);
+        if (settings.creators) {
+          // Don't auto-load from cookie, just keep localStorage as primary
+          console.log(
+            "Cookie settings found, last saved:",
+            new Date(settings.savedAt).toLocaleString(),
+          );
+        }
+      } catch (e) {
+        console.error("Failed to parse cookie settings:", e);
+      }
+    }
+  }, []);
+
+  // Export settings to JSON file
+  const handleExportSettings = () => {
+    const settings = {
+      creators,
+      categoryFilter,
+      viewMode,
+      exportedAt: new Date().toISOString(),
+      version: DATA_VERSION,
+    };
+    const dataStr = JSON.stringify(settings, null, 2);
+    const dataUri =
+      "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
+    const exportFileDefaultName = `favcreators-settings-${new Date().toISOString().split("T")[0]}.json`;
+    const linkElement = document.createElement("a");
+    linkElement.setAttribute("href", dataUri);
+    linkElement.setAttribute("download", exportFileDefaultName);
+    linkElement.click();
+  };
+
+  // Import settings from JSON file
+  const handleImportSettings = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const imported = JSON.parse(event.target?.result as string);
+
+          // Check if it's our settings format or just creators array
+          if (imported.creators && Array.isArray(imported.creators)) {
+            setCreators(imported.creators);
+            if (imported.categoryFilter !== undefined)
+              setCategoryFilter(imported.categoryFilter);
+            if (imported.viewMode !== undefined) setViewMode(imported.viewMode);
+            alert(
+              `Settings imported successfully! (${imported.creators.length} creators)`,
+            );
+          } else if (Array.isArray(imported)) {
+            // Legacy format: just an array of creators
+            setCreators(imported);
+            alert(`Imported ${imported.length} creators!`);
+          } else {
+            alert("Invalid settings file format.");
+          }
+        } catch (err) {
+          console.error("Import failed:", err);
+          alert("Failed to import settings. Make sure the file is valid JSON.");
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
   const handleCheckCreatorStatus = async (id: string) => {
     const creator = creators.find((c) => c.id === id);
     if (!creator) return;
@@ -783,11 +898,11 @@ function App() {
       creators.map((c) =>
         c.id === id
           ? {
-            ...c,
-            isLive: anyAccountLive,
-            accounts: updatedAccounts,
-            lastChecked: now,
-          }
+              ...c,
+              isLive: anyAccountLive,
+              accounts: updatedAccounts,
+              lastChecked: now,
+            }
           : c,
       ),
     );
@@ -930,10 +1045,76 @@ function App() {
   return (
     <div className="app-container">
       <header>
-        <h1>FavCreators</h1>
-        <p className="subtitle">
-          Keep track of your favorite creators across the web
-        </p>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+            gap: "1rem",
+          }}
+        >
+          <div>
+            <h1>FavCreators</h1>
+            <p className="subtitle">
+              Keep track of your favorite creators across the web
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <button
+              onClick={handleSaveSettings}
+              title="Save settings to browser cookies"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "0.5rem 1rem",
+                background: "var(--accent)",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontWeight: 500,
+              }}
+            >
+              💾 Save
+            </button>
+            <button
+              onClick={handleExportSettings}
+              title="Export settings to JSON file"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "0.5rem 1rem",
+                background: "var(--card-bg)",
+                color: "var(--text)",
+                border: "1px solid var(--border)",
+                borderRadius: "6px",
+                cursor: "pointer",
+              }}
+            >
+              📤 Export
+            </button>
+            <button
+              onClick={handleImportSettings}
+              title="Import settings from JSON file"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "0.5rem 1rem",
+                background: "var(--card-bg)",
+                color: "var(--text)",
+                border: "1px solid var(--border)",
+                borderRadius: "6px",
+                cursor: "pointer",
+              }}
+            >
+              📥 Import
+            </button>
+          </div>
+        </div>
       </header>
 
       {renderViewModeToggle()}
