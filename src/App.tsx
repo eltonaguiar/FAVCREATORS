@@ -149,9 +149,15 @@ const checkLiveStatus = async (
   if (platform === "kick") {
     const normalizeKickDecisionFromText = (text: string): boolean | null => {
       if (!text) return null;
+      if (text.includes("Request blocked by security policy")) return null;
       const isLiveMatch = text.match(/"is_live"\s*:\s*(true|false)/i);
       if (isLiveMatch?.[1]) return isLiveMatch[1].toLowerCase() === "true";
+      const isLiveNumericMatch = text.match(/"is_live"\s*:\s*(1|0)/i);
+      if (isLiveNumericMatch?.[1]) return isLiveNumericMatch[1] === "1";
+      const isLiveAltMatch = text.match(/"isLive"\s*:\s*(true|false)/i);
+      if (isLiveAltMatch?.[1]) return isLiveAltMatch[1].toLowerCase() === "true";
       if (text.match(/"livestream"\s*:\s*null/i)) return false;
+      if (text.match(/"livestream"\s*:\s*\{/i)) return true;
       return null;
     };
 
@@ -161,6 +167,10 @@ const checkLiveStatus = async (
 
       const directIsLive = obj.is_live;
       if (typeof directIsLive === "boolean") return directIsLive;
+      if (typeof directIsLive === "number") return directIsLive === 1;
+
+      const directIsLiveAlt = obj.isLive;
+      if (typeof directIsLiveAlt === "boolean") return directIsLiveAlt;
 
       const livestream = obj.livestream;
       if (livestream === null) return false;
@@ -168,6 +178,8 @@ const checkLiveStatus = async (
         const ls = livestream as Record<string, unknown>;
         if (typeof ls.is_live === "boolean") return ls.is_live;
         if (typeof ls.isLive === "boolean") return ls.isLive;
+        if (typeof ls.is_live === "number") return ls.is_live === 1;
+        return true;
       }
 
       return null;
