@@ -381,42 +381,65 @@ function App() {
     // 2. Kick Check (Real via Proxy with multiple detection methods)
     if (platform === "kick") {
       try {
-        const html = await fetchViaProxy(
+        const apiResponse = await fetchViaProxy(
           `https://kick.com/api/v2/channels/${username}`,
         );
-        if (html) {
+        if (apiResponse) {
+          // First try: Check raw string for is_live (most reliable)
+          if (apiResponse.includes('"is_live":true')) {
+            console.log(`Kick: ${username} is LIVE (string match)`);
+            return true;
+          }
+          if (apiResponse.includes('"is_live":false')) {
+            console.log(`Kick: ${username} is OFFLINE (string match)`);
+            return false;
+          }
+          // Also check for livestream:null which means offline
+          if (apiResponse.includes('"livestream":null')) {
+            console.log(`Kick: ${username} is OFFLINE (no livestream)`);
+            return false;
+          }
+
+          // Second try: Parse JSON for structured check
           try {
-            // Kick API returns JSON
-            const data = JSON.parse(html);
-            if (
-              typeof data.livestream === "object" &&
-              data.livestream !== null
-            ) {
-              return data.livestream.is_live === true;
+            const data = JSON.parse(apiResponse);
+            if (data.livestream && typeof data.livestream === "object") {
+              const isLive = data.livestream.is_live === true;
+              console.log(
+                `Kick: ${username} is ${isLive ? "LIVE" : "OFFLINE"} (JSON parse)`,
+              );
+              return isLive;
             }
-            // No livestream object means offline
-            if (data.livestream === null) return false;
+            if (data.livestream === null) {
+              console.log(`Kick: ${username} is OFFLINE (JSON null)`);
+              return false;
+            }
           } catch {
-            // Not JSON, try HTML parsing
+            // JSON parse failed, but we already tried string matching
           }
         }
+      } catch (e) {
+        console.warn("Kick API check failed", e);
+      }
 
-        // Fallback to page scraping
+      // Fallback: page scraping (only if API failed completely)
+      try {
         const pageHtml = await fetchViaProxy(`https://kick.com/${username}`);
         if (pageHtml) {
-          // Multiple detection patterns for robustness
-          if (pageHtml.includes('"is_live":true')) return true;
-          if (pageHtml.includes('"isLive":true')) return true;
-          if (
-            pageHtml.includes("livestream-thumbnail") &&
-            pageHtml.includes("LIVE")
-          )
+          if (pageHtml.includes('"is_live":true')) {
+            console.log(`Kick: ${username} is LIVE (page scrape)`);
             return true;
-          if (pageHtml.includes('"is_live":false')) return false;
-          if (pageHtml.includes('"isLive":false')) return false;
+          }
+          if (
+            pageHtml.includes('"is_live":false') ||
+            pageHtml.includes('"livestream":null')
+          ) {
+            console.log(`Kick: ${username} is OFFLINE (page scrape)`);
+            return false;
+          }
         }
       } catch (e) {
-        console.warn("Kick check failed", e);
+        console.warn("Kick page scrape failed", e);
       }
 
       return null; // Check failed, status unknown
