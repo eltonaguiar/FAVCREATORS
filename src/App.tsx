@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-// Build version: 2026-01-30-v4 - Single proxy only
+// Build version: 2026-01-30-v5-XYZMAGIC123 - Single proxy only
 import "./App.css";
+console.log("XYZMAGIC123_BUILD_CHECK");
 import type { Creator, SocialAccount, Platform } from "./types";
 import CreatorCard from "./components/CreatorCard";
 import CreatorForm from "./components/CreatorForm";
@@ -318,7 +319,9 @@ function App() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("Favorites");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [viewMode, setViewMode] = useState<"list" | "dropdown">("list");
+  const [featuredFilter, setFeaturedFilter] = useState<"all" | "adinross" | "starfireara">("all");
   const [quickAddValue, setQuickAddValue] = useState("fouseytube");
   const [packPreview, setPackPreview] = useState<Creator[] | null>(null);
   const [packNotice, setPackNotice] = useState<string | null>(null);
@@ -589,8 +592,6 @@ function App() {
   useEffect(() => {
     localStorage.setItem("fav_creators", JSON.stringify(creators));
   }, [creators]);
-
-
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -904,6 +905,9 @@ function App() {
         </p>
       </header>
 
+      {renderViewModeToggle()}
+      {renderFeaturedFilterDropdown()}
+
       <div className="quick-add-group">
         <input
           className="quick-add-input"
@@ -936,7 +940,6 @@ function App() {
             <option value="Favorites">Favorites</option>
             <option value="Other">Other</option>
           </select>
-
         </div>
         <div style={{ display: "flex", gap: "0.8rem" }}>
           <button
@@ -1014,8 +1017,6 @@ function App() {
             />
           ))}
       </div>
-
-
 
       {isFormOpen && (
         <CreatorForm
