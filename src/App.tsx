@@ -15,7 +15,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     lastChecked: Date.now() - 50000,
     addedAt: Date.now(),
-    category: "Favorites",
+    category: "Other",
     accounts: [
       {
         id: "1a",
@@ -296,7 +296,7 @@ const INITIAL_DATA: Creator[] = [
   },
 ];
 
-const DATA_VERSION = "4.0"; // Increment this to force reset localStorage
+const DATA_VERSION = "5.0"; // Increment this to force reset localStorage
 
 function App() {
   const [creators, setCreators] = useState<Creator[]>(() => {
@@ -319,10 +319,6 @@ function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Favorites");
-  const [viewStyle, setViewStyle] = useState<"grouped" | "filtered">(() => {
-    const saved = localStorage.getItem("fav_creators_view_style");
-    return saved === "grouped" || saved === "filtered" ? saved : "filtered";
-  });
   const [quickAddValue, setQuickAddValue] = useState("fouseytube");
   const [packPreview, setPackPreview] = useState<Creator[] | null>(null);
   const [packNotice, setPackNotice] = useState<string | null>(null);
@@ -594,9 +590,7 @@ function App() {
     localStorage.setItem("fav_creators", JSON.stringify(creators));
   }, [creators]);
 
-  useEffect(() => {
-    localStorage.setItem("fav_creators_view_style", viewStyle);
-  }, [viewStyle]);
+
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -792,11 +786,11 @@ function App() {
       creators.map((c) =>
         c.id === id
           ? {
-              ...c,
-              isLive: anyAccountLive,
-              accounts: updatedAccounts,
-              lastChecked: now,
-            }
+            ...c,
+            isLive: anyAccountLive,
+            accounts: updatedAccounts,
+            lastChecked: now,
+          }
           : c,
       ),
     );
@@ -939,24 +933,10 @@ function App() {
             onChange={(e) => setCategoryFilter(e.target.value)}
             style={{ minWidth: 140 }}
           >
-            <option value="">All Categories</option>
             <option value="Favorites">Favorites</option>
             <option value="Other">Other</option>
           </select>
-          <button
-            className="btn-secondary"
-            onClick={() =>
-              setViewStyle(viewStyle === "grouped" ? "filtered" : "grouped")
-            }
-            title={
-              viewStyle === "grouped"
-                ? "Switch to filtered view"
-                : "Switch to grouped view"
-            }
-            style={{ minWidth: 100 }}
-          >
-            {viewStyle === "grouped" ? "📋 Grouped" : "🔽 Filtered"}
-          </button>
+
         </div>
         <div style={{ display: "flex", gap: "0.8rem" }}>
           <button
@@ -1008,93 +988,34 @@ function App() {
         <div className="pack-notice">{packNotice}</div>
       )}
 
-      {/* Filtered View - Single list filtered by dropdown */}
-      {viewStyle === "filtered" && (
-        <div className="creator-grid" style={{ marginTop: "2rem" }}>
-          {creators
-            .filter((c) => {
-              const search = searchQuery.toLowerCase().replace(/\s+/g, "");
-              const matchesSearch = c.name
-                .toLowerCase()
-                .replace(/\s+/g, "")
-                .includes(search);
-              const matchesCategory =
-                !categoryFilter || c.category === categoryFilter;
-              return matchesSearch && matchesCategory;
-            })
-            .map((creator) => (
-              <CreatorCard
-                key={creator.id}
-                creator={creator}
-                onToggleFavorite={handleToggleFavorite}
-                onDelete={handleDeleteCreator}
-                onRemoveAccount={handleRemoveAccount}
-                onCheckStatus={handleCheckCreatorStatus}
-                onTogglePin={handleTogglePin}
-                onUpdateNote={handleUpdateNote}
-              />
-            ))}
-        </div>
-      )}
+      {/* Featured View - Single list filtered by dropdown */}
+      <div className="creator-grid" style={{ marginTop: "2rem" }}>
+        {creators
+          .filter((c) => {
+            const search = searchQuery.toLowerCase().replace(/\s+/g, "");
+            const matchesSearch = c.name
+              .toLowerCase()
+              .replace(/\s+/g, "")
+              .includes(search);
+            const matchesCategory =
+              !categoryFilter || c.category === categoryFilter;
+            return matchesSearch && matchesCategory;
+          })
+          .map((creator) => (
+            <CreatorCard
+              key={creator.id}
+              creator={creator}
+              onToggleFavorite={handleToggleFavorite}
+              onDelete={handleDeleteCreator}
+              onRemoveAccount={handleRemoveAccount}
+              onCheckStatus={handleCheckCreatorStatus}
+              onTogglePin={handleTogglePin}
+              onUpdateNote={handleUpdateNote}
+            />
+          ))}
+      </div>
 
-      {/* Grouped View - Separated by category */}
-      {viewStyle === "grouped" && (
-        <>
-          {/* Favorites Section */}
-          <h2 style={{ marginTop: "2rem", color: "#fbbf24" }}>Favorites</h2>
-          <div className="creator-grid">
-            {creators
-              .filter((c) => {
-                const search = searchQuery.toLowerCase().replace(/\s+/g, "");
-                const matchesSearch = c.name
-                  .toLowerCase()
-                  .replace(/\s+/g, "")
-                  .includes(search);
-                const isFavorite = c.category === "Favorites";
-                return matchesSearch && isFavorite;
-              })
-              .map((creator) => (
-                <CreatorCard
-                  key={creator.id}
-                  creator={creator}
-                  onToggleFavorite={handleToggleFavorite}
-                  onDelete={handleDeleteCreator}
-                  onRemoveAccount={handleRemoveAccount}
-                  onCheckStatus={handleCheckCreatorStatus}
-                  onTogglePin={handleTogglePin}
-                  onUpdateNote={handleUpdateNote}
-                />
-              ))}
-          </div>
 
-          {/* Other Section */}
-          <h2 style={{ marginTop: "2rem", color: "#7dd3fc" }}>Other</h2>
-          <div className="creator-grid">
-            {creators
-              .filter((c) => {
-                const search = searchQuery.toLowerCase().replace(/\s+/g, "");
-                const matchesSearch = c.name
-                  .toLowerCase()
-                  .replace(/\s+/g, "")
-                  .includes(search);
-                const isOther = c.category === "Other";
-                return matchesSearch && isOther;
-              })
-              .map((creator) => (
-                <CreatorCard
-                  key={creator.id}
-                  creator={creator}
-                  onToggleFavorite={handleToggleFavorite}
-                  onDelete={handleDeleteCreator}
-                  onRemoveAccount={handleRemoveAccount}
-                  onCheckStatus={handleCheckCreatorStatus}
-                  onTogglePin={handleTogglePin}
-                  onUpdateNote={handleUpdateNote}
-                />
-              ))}
-          </div>
-        </>
-      )}
 
       {isFormOpen && (
         <CreatorForm
