@@ -300,30 +300,35 @@ function App() {
     }
   };
 
-  // Helper: Try multiple CORS proxies for reliability
-  const fetchViaProxy = async (targetUrl: string): Promise<string | null> => {
-    const proxies = [
-      (url: string) =>
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-      (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-      (url: string) =>
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-    ];
+  // Helper: Fetch via CORS proxy with retry logic
+  const fetchViaProxy = async (
+    targetUrl: string,
+    retries: number = 2,
+  ): Promise<string | null> => {
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
 
-    for (const proxyFn of proxies) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        const proxyUrl = proxyFn(targetUrl);
-        const response = await fetchWithTimeout(proxyUrl, 6000);
+        // Add small delay between retries
+        if (attempt > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+        }
+
+        const response = await fetchWithTimeout(proxyUrl, 10000);
         if (response.ok) {
           const text = await response.text();
-          if (text && text.length > 100) {
-            // Sanity check for valid response
+          if (text && text.length > 50) {
             return text;
           }
         }
       } catch (e) {
-        // Try next proxy
-        continue;
+        console.warn(
+          `Proxy fetch attempt ${attempt + 1} failed for ${targetUrl}`,
+          e,
+        );
+        if (attempt === retries) {
+          return null;
+        }
       }
     }
     return null;
@@ -567,41 +572,38 @@ function App() {
   }, []);
 
   const updateAllLiveStatuses = async () => {
-    setCreators((prevCreators) => {
-      // Start the async updates
-      Promise.all(
-        prevCreators.map(async (c) => {
-          const now = Date.now();
-          const updatedAccounts = await Promise.all(
-            c.accounts.map(async (acc) => {
-              const liveResult = await checkLiveStatus(
-                acc.platform,
-                acc.username,
-              );
-              // If check failed (null), keep previous status; otherwise use new status
-              const isLive = liveResult === null ? acc.isLive : liveResult;
-              return { ...acc, isLive, lastChecked: now };
-            }),
-          );
+    // Get current creators
+    const currentCreators = [...creators];
+    const updatedCreators: Creator[] = [];
 
-          // Only mark creator as live if at least one account is definitively live
-          const anyAccountLive = updatedAccounts.some(
-            (acc) => acc.isLive === true,
-          );
-          return {
-            ...c,
-            isLive: anyAccountLive,
-            accounts: updatedAccounts,
-            lastChecked: now,
-          };
+    // Process creators sequentially with small delays to avoid overwhelming proxy
+    for (let i = 0; i < currentCreators.length; i++) {
+      const c = currentCreators[i];
+      const now = Date.now();
+
+      // Add delay between creators (except first one)
+      if (i > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      const updatedAccounts = await Promise.all(
+        c.accounts.map(async (acc) => {
+          const liveResult = await checkLiveStatus(acc.platform, acc.username);
+          const isLive = liveResult === null ? acc.isLive : liveResult;
+          return { ...acc, isLive, lastChecked: now };
         }),
-      ).then((updatedCreators) => {
-        setCreators(updatedCreators);
-      });
+      );
 
-      // Return unchanged for now; the Promise will update later
-      return prevCreators;
-    });
+      const anyAccountLive = updatedAccounts.some((acc) => acc.isLive === true);
+      updatedCreators.push({
+        ...c,
+        isLive: anyAccountLive,
+        accounts: updatedAccounts,
+        lastChecked: now,
+      });
+    }
+
+    setCreators(updatedCreators);
   };
 
   // Auto-check live status on mount
