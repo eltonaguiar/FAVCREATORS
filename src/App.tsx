@@ -42,7 +42,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 2000,
     lastChecked: Date.now() - 1500,
-    category: "Streamers",
+    category: "Other",
     accounts: [
       {
         id: "zarthestar-kick",
@@ -87,7 +87,7 @@ const INITIAL_DATA: Creator[] = [
     note: "Track collaborations with the squad.",
     addedAt: Date.now() - 500,
     lastChecked: Date.now() - 650,
-    category: "Streamers",
+    category: "Other",
     accounts: [
       {
         id: "10a",
@@ -117,7 +117,7 @@ const INITIAL_DATA: Creator[] = [
     note: "Always check on the 1v1 streams.",
     addedAt: Date.now() - 10000,
     lastChecked: Date.now() - 35000,
-    category: "Streamers",
+    category: "Other",
     accounts: [
       {
         id: "4a",
@@ -138,7 +138,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 20000,
     lastChecked: Date.now() - 30000,
-    category: "Streamers",
+    category: "Other",
     accounts: [
       {
         id: "5a",
@@ -221,7 +221,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 100000,
     lastChecked: Date.now() - 95000,
-    category: "Streamers",
+    category: "Other",
     accounts: [
       {
         id: "2a",
@@ -241,7 +241,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 30000,
     lastChecked: Date.now() - 28000,
-    category: "Streamers",
+    category: "Other",
     accounts: [
       {
         id: "7a",
@@ -261,7 +261,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 40000,
     lastChecked: Date.now() - 38000,
-    category: "Streamers",
+    category: "Other",
     accounts: [
       {
         id: "8a",
@@ -281,7 +281,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 50000,
     lastChecked: Date.now() - 48000,
-    category: "Streamers",
+    category: "Other",
     accounts: [
       {
         id: "9a",
@@ -295,7 +295,7 @@ const INITIAL_DATA: Creator[] = [
   },
 ];
 
-const DATA_VERSION = "3.0"; // Increment this to force reset localStorage
+const DATA_VERSION = "4.0"; // Increment this to force reset localStorage
 
 function App() {
   const [creators, setCreators] = useState<Creator[]>(() => {
@@ -791,11 +791,11 @@ function App() {
       creators.map((c) =>
         c.id === id
           ? {
-              ...c,
-              isLive: anyAccountLive,
-              accounts: updatedAccounts,
-              lastChecked: now,
-            }
+            ...c,
+            isLive: anyAccountLive,
+            accounts: updatedAccounts,
+            lastChecked: now,
+          }
           : c,
       ),
     );
@@ -940,7 +940,7 @@ function App() {
           >
             <option value="">All Categories</option>
             <option value="Favorites">Favorites</option>
-            <option value="Streamers">Streamers</option>
+            <option value="Other">Other</option>
           </select>
           <button
             className="btn-secondary"
@@ -1012,9 +1012,11 @@ function App() {
         <div className="creator-grid" style={{ marginTop: "2rem" }}>
           {creators
             .filter((c) => {
+              const search = searchQuery.toLowerCase().replace(/\s+/g, "");
               const matchesSearch = c.name
                 .toLowerCase()
-                .includes(searchQuery.toLowerCase());
+                .replace(/\s+/g, "")
+                .includes(search);
               const matchesCategory =
                 !categoryFilter || c.category === categoryFilter;
               return matchesSearch && matchesCategory;
@@ -1042,9 +1044,11 @@ function App() {
           <div className="creator-grid">
             {creators
               .filter((c) => {
+                const search = searchQuery.toLowerCase().replace(/\s+/g, "");
                 const matchesSearch = c.name
                   .toLowerCase()
-                  .includes(searchQuery.toLowerCase());
+                  .replace(/\s+/g, "")
+                  .includes(search);
                 const isFavorite = c.category === "Favorites";
                 return matchesSearch && isFavorite;
               })
@@ -1062,16 +1066,18 @@ function App() {
               ))}
           </div>
 
-          {/* Streamers Section */}
-          <h2 style={{ marginTop: "2rem", color: "#7dd3fc" }}>Streamers</h2>
+          {/* Other Section */}
+          <h2 style={{ marginTop: "2rem", color: "#7dd3fc" }}>Other</h2>
           <div className="creator-grid">
             {creators
               .filter((c) => {
+                const search = searchQuery.toLowerCase().replace(/\s+/g, "");
                 const matchesSearch = c.name
                   .toLowerCase()
-                  .includes(searchQuery.toLowerCase());
-                const isStreamer = c.category === "Streamers";
-                return matchesSearch && isStreamer;
+                  .replace(/\s+/g, "")
+                  .includes(search);
+                const isOther = c.category === "Other";
+                return matchesSearch && isOther;
               })
               .map((creator) => (
                 <CreatorCard
