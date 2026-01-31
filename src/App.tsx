@@ -848,6 +848,26 @@ function App() {
 
   const filteredCreators = creators
     .filter((c) => {
+      // Only show Adin Ross and Starfireara in the main view
+      const isMain = c.name === "Adin Ross" || c.name === "Starfireara";
+      const matchesSearch =
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.bio.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = !categoryFilter || c.category === categoryFilter;
+      return isMain && matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      const priority = (creator: Creator) =>
+        creator.isPinned ? 2 : creator.isFavorite ? 1 : 0;
+      const priorityDiff = priority(b) - priority(a);
+      if (priorityDiff !== 0) return priorityDiff;
+      return b.addedAt - a.addedAt;
+    });
+
+  // All other creators (not Adin Ross or Starfireara)
+  const otherCreators = creators
+    .filter((c) => c.name !== "Adin Ross" && c.name !== "Starfireara")
+    .filter((c) => {
       const matchesSearch =
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.bio.toLowerCase().includes(searchQuery.toLowerCase());
@@ -960,6 +980,7 @@ function App() {
         <div className="pack-notice">{packNotice}</div>
       )}
 
+
       <div className="creator-grid">
         {filteredCreators.map((creator) => (
           <CreatorCard
@@ -986,6 +1007,27 @@ function App() {
           </div>
         )}
       </div>
+
+      {/* Show other creators in a separate section */}
+      {otherCreators.length > 0 && (
+        <>
+          <h2 style={{ marginTop: "2rem", color: "#7dd3fc" }}>Other Creators</h2>
+          <div className="creator-grid">
+            {otherCreators.map((creator) => (
+              <CreatorCard
+                key={creator.id}
+                creator={creator}
+                onToggleFavorite={handleToggleFavorite}
+                onDelete={handleDeleteCreator}
+                onRemoveAccount={handleRemoveAccount}
+                onCheckStatus={handleCheckCreatorStatus}
+                onTogglePin={handleTogglePin}
+                onUpdateNote={handleUpdateNote}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {isFormOpen && (
         <CreatorForm
