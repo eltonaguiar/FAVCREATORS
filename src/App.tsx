@@ -38,6 +38,49 @@ const INITIAL_DATA: Creator[] = [
     ],
   },
   {
+    id: "wtfpreston-1",
+    name: "WTFPreston",
+    bio: "Comedy musician and streamer dropping weird, funny songs and live bits.",
+    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=WTFPreston",
+    isFavorite: false,
+    addedAt: Date.now() - 4000,
+    lastChecked: Date.now() - 3000,
+    category: "Other",
+    reason: "He makes funny songs.",
+    tags: ["COMEDY", "MUSIC", "LOVE THEIR CONTENT"],
+    accounts: [
+      {
+        id: "wtfpreston-tiktok",
+        platform: "tiktok",
+        username: "wtfprestonlive",
+        url: "https://www.tiktok.com/@wtfprestonlive",
+        followers: "330K",
+        lastChecked: Date.now() - 3000,
+      },
+      {
+        id: "wtfpreston-youtube",
+        platform: "youtube",
+        username: "wtfprestonlive",
+        url: "https://www.youtube.com/@wtfprestonlive",
+        lastChecked: Date.now() - 3000,
+      },
+      {
+        id: "wtfpreston-instagram",
+        platform: "instagram",
+        username: "wtfprestonlive",
+        url: "https://www.instagram.com/wtfprestonlive",
+        lastChecked: Date.now() - 3000,
+      },
+      {
+        id: "wtfpreston-spotify",
+        platform: "spotify",
+        username: "wtfprestonlive",
+        url: "https://open.spotify.com/artist/5Ho2sjbNmEkALWz8hbNBUH",
+        lastChecked: Date.now() - 3000,
+      },
+    ],
+  },
+  {
     id: "zarthestar-1",
     name: "Zarthestar",
     bio: "Cosmic content creator and explorer of the digital universe. TikTok comedy & lifestyle.",
@@ -290,6 +333,7 @@ const INITIAL_DATA: Creator[] = [
 ];
 
 const DATA_VERSION = "7.0"; // Increment this to force reset localStorage
+const QUICK_ADD_DEFAULT_TAGS = ["LOVE THEIR CONTENT"];
 
 function App() {
   const [creators, setCreators] = useState<Creator[]>(() => {
@@ -733,6 +777,7 @@ function App() {
       note: "",
       addedAt: now,
       lastChecked: now,
+      tags: [...QUICK_ADD_DEFAULT_TAGS],
     };
 
     setCreators([newCreator, ...creators]);

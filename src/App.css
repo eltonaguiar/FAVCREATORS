@@ -358,6 +358,66 @@ h1 {
   flex-wrap: wrap;
 }
 
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tag-pill {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.tag-selector-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tag-option {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: white;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tag-option--active {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 6px 12px rgba(139, 92, 246, 0.25);
+}
+
+.custom-tag-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.custom-tag-row input {
+  flex: 1;
+  padding: 0.6rem;
+}
+
+.tag-row--form {
+  margin-top: 0.4rem;
+}
+
 .account-link {
   display: flex;
   align-items: center;

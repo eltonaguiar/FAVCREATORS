@@ -127,6 +127,16 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
             <path d="M11.571 1.429 1.286 4v14.571h4.285V22.5l4.286-3.929h3.857l7.286-7.286V1.429h-9.429zm8.571 9.429-3.429 3.429h-4.714l-2.571 2.571v-2.571H6.429V4h11.571L20.142 6.143v4.715zM15 7.429h-1.714v4.286H15V7.429zm-4.714 0H8.571v4.286h1.715V7.429z" />
           </svg>
         );
+      case "spotify":
+        return (
+          <svg
+            viewBox="0 0 24 24"
+            className="platform-icon"
+            fill="currentColor"
+          >
+            <path d="M12 2.25a9.75 9.75 0 1 0 9.75 9.75A9.76 9.76 0 0 0 12 2.25zm4.2 13.15a.75.75 0 0 1-1.04.27c-2.54-1.55-5.74-1.7-8.32-.4a.75.75 0 0 1-.52-1.38c3.12-1.18 6.74-1 9.5.5a.75.75 0 0 1 .38 1.01zm1.08-2.68a.75.75 0 0 1-1.05.33c-3.24-1.9-8.03-1.88-11.14-.44a.75.75 0 0 1-.8-1.28c3.59-2.24 8.78-2.27 12.3.5a.75.75 0 0 1 .69 1.04zm0-2.72a.75.75 0 0 1-1.04.35c-3.73-2.21-9.66-2.22-12.8-.53a.75.75 0 1 1-.76-1.3c3.7-2.16 10.05-2.14 14 .57a.75.75 0 0 1 .6 1.1z" />
+          </svg>
+        );
       default:
         return (
           <svg
@@ -233,6 +243,15 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
           style={{ fontSize: "0.9rem", color: "#7dd3fc", marginBottom: 4 }}
         >
           {creator.category}
+        </div>
+      )}
+      {creator.tags && creator.tags.length > 0 && (
+        <div className="tag-row">
+          {creator.tags.map((tag) => (
+            <span key={tag} className="tag-pill">
+              {tag}
+            </span>
+          ))}
         </div>
       )}
       <p className="creator-bio">{creator.bio}</p>

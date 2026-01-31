@@ -3,6 +3,7 @@ import type { Creator, SocialAccount, Platform } from "../types";
 import { googleSearchYoutubeChannel } from "../utils/googleSearch";
 import { extractYoutubeUsername } from "../utils/youtube";
 import { grabAvatarFromAccounts } from "../utils/avatarGrabber";
+import { FOLLOW_REASON_TAGS } from "../constants/followReasons";
 
 interface CreatorFormProps {
   onSave: (creator: Creator) => void;
@@ -27,6 +28,7 @@ const ACCOUNT_PLATFORMS: { value: Platform; label: string }[] = [
   { value: "instagram", label: "Instagram" },
   { value: "kick", label: "Kick" },
   { value: "twitch", label: "Twitch" },
+  { value: "spotify", label: "Spotify" },
   { value: "other", label: "Other" },
 ];
 
@@ -39,6 +41,24 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [category, setCategory] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag],
+    );
+  };
+
+  const addCustomTag = () => {
+    const trimmed = customTagInput.trim().toUpperCase();
+    if (!trimmed) return;
+    if (selectedTags.includes(trimmed)) {
+      setCustomTagInput("");
+      return;
+    }
+    setSelectedTags((prev) => [...prev, trimmed]);
+    setCustomTagInput("");
+  };
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTagInput, setCustomTagInput] = useState("");
 
   const [newAccount, setNewAccount] = useState({
     platform: "youtube" as Platform,
@@ -108,6 +128,7 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
         isFavorite: false,
         addedAt: Date.now(),
         category,
+        tags: selectedTags,
       });
     } finally {
       setIsSubmitting(false);
@@ -141,6 +162,55 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
                 </option>
               ))}
             </select>
+          </div>
+          <div className="form-group">
+            <label>Follow reasons (tags)</label>
+            <div className="tag-selector-grid">
+              {FOLLOW_REASON_TAGS.map((tag) => {
+                const isActive = selectedTags.includes(tag);
+                return (
+                  <button
+                    type="button"
+                    key={tag}
+                    className={`tag-option ${isActive ? "tag-option--active" : ""}`}
+                    onClick={() => toggleTag(tag)}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="custom-tag-row">
+              <input
+                type="text"
+                placeholder="Add custom tag"
+                value={customTagInput}
+                onChange={(e) => setCustomTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCustomTag();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={addCustomTag}
+                disabled={!customTagInput.trim()}
+              >
+                Add
+              </button>
+            </div>
+            {selectedTags.length > 0 && (
+              <div className="tag-row tag-row--form">
+                {selectedTags.map((tag) => (
+                  <span key={tag} className="tag-pill">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <div className="form-group">
             <button
