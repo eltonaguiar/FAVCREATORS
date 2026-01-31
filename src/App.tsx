@@ -14,6 +14,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: true,
     lastChecked: Date.now() - 50000,
     addedAt: Date.now(),
+    category: 'Entertainment',
     accounts: [
       { id: '1a', platform: 'youtube', username: 'MrBeast', url: 'https://youtube.com/@MrBeast', followers: '341M', lastChecked: Date.now() - 50000 },
       { id: '1b', platform: 'instagram', username: 'mrbeast', url: 'https://instagram.com/mrbeast', followers: '61.1M', lastChecked: Date.now() - 52000 }
@@ -29,6 +30,7 @@ const INITIAL_DATA: Creator[] = [
     note: 'Track collaborations with the squad.',
     addedAt: Date.now() - 500,
     lastChecked: Date.now() - 650,
+    category: 'Gaming',
     accounts: [
       { id: '10a', platform: 'youtube', username: 'dream', url: 'https://youtube.com/@Dream', followers: '33M', lastChecked: Date.now() - 650 },
       { id: '10b', platform: 'twitch', username: 'dreamwastaken', url: 'https://www.twitch.tv/dreamwastaken', followers: '12M', lastChecked: Date.now() - 700 }
@@ -44,6 +46,7 @@ const INITIAL_DATA: Creator[] = [
     note: 'Always check on the 1v1 streams.',
     addedAt: Date.now() - 10000,
     lastChecked: Date.now() - 35000,
+    category: 'Gaming',
     accounts: [
       { id: '4a', platform: 'twitch', username: 'loltyler1', url: 'https://www.twitch.tv/loltyler1', followers: '5.3M', lastChecked: Date.now() - 36000 }
     ]
@@ -56,6 +59,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: true,
     addedAt: Date.now() - 20000,
     lastChecked: Date.now() - 30000,
+    category: 'Entertainment',
     accounts: [
       { id: '5a', platform: 'twitch', username: 'allecakes', url: 'https://www.twitch.tv/allecakes', followers: '1.2M', lastChecked: Date.now() - 31000 }
     ]
@@ -68,6 +72,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: true,
     addedAt: Date.now() - 50000,
     lastChecked: Date.now() - 45000,
+    category: 'Entertainment',
     accounts: [
       { id: '3a', platform: 'kick', username: 'adinross', url: 'https://kick.com/adinross', followers: '1.9M', lastChecked: Date.now() - 47000 },
       { id: '3b', platform: 'youtube', username: 'adinross', url: 'https://youtube.com/@adinross', followers: '4.6M', lastChecked: Date.now() - 47000 }
@@ -83,6 +88,7 @@ const INITIAL_DATA: Creator[] = [
     reason: 'Motivational speaker',
     isLive: true,
     lastChecked: Date.now() - 4000,
+    category: 'Lifestyle',
     accounts: [
       { id: '6a', platform: 'kick', username: 'starfireara', url: 'https://kick.com/starfireara', followers: '50.2K', lastChecked: Date.now() - 2500 },
       { id: '6b', platform: 'tiktok', username: 'starfireara', url: 'https://www.tiktok.com/@starfireara', followers: '247.3K', isLive: true, lastChecked: Date.now() - 4000 }
@@ -96,6 +102,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 100000,
     lastChecked: Date.now() - 95000,
+    category: 'Tech',
     accounts: [
       { id: '2a', platform: 'youtube', username: 'mkbhd', url: 'https://youtube.com/@mkbhd', followers: '19.6M', lastChecked: Date.now() - 95000 }
     ]
@@ -108,6 +115,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 30000,
     lastChecked: Date.now() - 28000,
+    category: 'Gaming',
     accounts: [
       { id: '7a', platform: 'twitch', username: 'tfue', url: 'https://www.twitch.tv/tfue', followers: '11.4M', lastChecked: Date.now() - 28000 }
     ]
@@ -120,6 +128,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 40000,
     lastChecked: Date.now() - 38000,
+    category: 'Gaming',
     accounts: [
       { id: '8a', platform: 'twitch', username: 'shroud', url: 'https://www.twitch.tv/shroud', followers: '10.9M', lastChecked: Date.now() - 38000 }
     ]
@@ -132,6 +141,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 50000,
     lastChecked: Date.now() - 48000,
+    category: 'Entertainment',
     accounts: [
       { id: '9a', platform: 'twitch', username: 'pokimane', url: 'https://www.twitch.tv/pokimane', followers: '9.3M', lastChecked: Date.now() - 48000 }
     ]
