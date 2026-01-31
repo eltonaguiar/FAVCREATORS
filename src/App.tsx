@@ -477,7 +477,7 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
     id: "3",
     name: "Adin Ross",
     bio: "Kick's No. 1 Creator | Live every day.",
-    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=AdinRoss",
+    avatarUrl: "https://api.dicebear.com/7.x/pixel-art/svg?seed=AdinRoss",
     isFavorite: true,
     isPinned: true,
     addedAt: Date.now() - 50000,
@@ -513,7 +513,7 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
     id: "6",
     name: "Starfireara",
     bio: "Content creator and visionary.",
-    avatarUrl: "https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/7b5c9a5a4df3ab57b62df377dd526aa1~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=65ec1255&x-expires=1770040800&x-signature=Vki8Wv2HnxielGjRYKpcYOVnvZo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
+    avatarUrl: "https://api.dicebear.com/7.x/pixel-art/svg?seed=Starfireara",
     isFavorite: true,
     isPinned: true,
     addedAt: Date.now() - 5000,
@@ -572,7 +572,7 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
     id: "7",
     name: "Tfue",
     bio: "Professional Gaming Legend.",
-    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Tfue",
+    avatarUrl: "https://api.dicebear.com/7.x/pixel-art/svg?seed=Tfue",
     isFavorite: false,
     addedAt: Date.now() - 30000,
     lastChecked: Date.now() - 28000,
@@ -599,7 +599,7 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
     id: "8",
     name: "Shroud",
     bio: "The human aimbot.",
-    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Shroud",
+    avatarUrl: "https://api.dicebear.com/7.x/pixel-art/svg?seed=Shroud",
     isFavorite: false,
     addedAt: Date.now() - 40000,
     lastChecked: Date.now() - 38000,
@@ -626,7 +626,7 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
     id: "9",
     name: "Pokimane",
     bio: "Voted best variety streamer.",
-    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Pokimane",
+    avatarUrl: "https://api.dicebear.com/7.x/pixel-art/svg?seed=Pokimane",
     isFavorite: false,
     addedAt: Date.now() - 50000,
     lastChecked: Date.now() - 48000,
@@ -701,7 +701,7 @@ function App() {
       for (const creator of snapshot) {
         if (!isMounted) return;
         if (creator.avatarUrl?.includes("dicebear.com")) {
-          const avatar = await grabAvatarFromAccounts(creator.accounts);
+          const avatar = await grabAvatarFromAccounts(creator.accounts, creator.name);
           if (avatar && avatar !== creator.avatarUrl && isMounted) {
             setCreators((oldCreators) =>
               oldCreators.map((c) =>
@@ -1134,7 +1134,7 @@ function App() {
             avatarUrl:
               avatar && !avatar.includes("dicebear.com")
                 ? avatar
-                : `https://api.dicebear.com/7.x/pixel-art/svg?seed=${c.name}`,
+                : `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(c.name)}`,
           }
           : c
       )

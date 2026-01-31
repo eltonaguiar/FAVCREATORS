@@ -188,7 +188,7 @@ export async function grabAvatarFromAccounts(
 
   // 3. Final fallback: Dicebear avatar
   if (fallbackName) {
-    return `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(fallbackName)}`;
+    return `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(fallbackName.trim())}`;
   }
   return "https://api.dicebear.com/7.x/pixel-art/svg?seed=favcreator";
 }
