@@ -33,6 +33,7 @@ const isGuestMode =
   window.location.hash.includes("/guest");
 
 const PUBLIC_CREATORS_STORAGE_KEY = "fav_creators_public";
+const AUTH_USER_STORAGE_KEY = "fav_creators_auth_user";
 
 // Using centralized proxy fetch from utils/proxyFetch.ts
 const fetchWithTimeout = fetchWithTimeoutInternal;
@@ -856,17 +857,39 @@ function App() {
   }, [creators, authUser, isGuestMode]);
 
   useEffect(() => {
-    if (!isGuestMode) {
-      const loadUser = async () => {
+    const loadUser = async () => {
+      const cached = (() => {
         try {
-          const user = await fetchMe();
-          setAuthUser(user);
-        } catch (error) {
-          console.warn("Auth check failed", error);
+          const raw = localStorage.getItem(AUTH_USER_STORAGE_KEY);
+          if (!raw) return null;
+          return JSON.parse(raw) as AuthUser;
+        } catch {
+          return null;
         }
-      };
-      void loadUser();
-    }
+      })();
+
+      if (cached?.provider === "admin") {
+        setAuthUser(cached);
+        return;
+      }
+
+      try {
+        const user = await fetchMe();
+        setAuthUser(user);
+        if (user) {
+          localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+        } else {
+          localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+        }
+      } catch (error) {
+        if (cached) {
+          setAuthUser(cached);
+        }
+        console.warn("Auth check failed", error);
+      }
+    };
+
+    void loadUser();
   }, [isGuestMode]);
 
   useEffect(() => {
@@ -1302,9 +1325,13 @@ function App() {
       const loginUser = await loginWithPassword(loginEmail, loginPassword);
       if (loginUser?.provider === "admin") {
         setAuthUser(loginUser);
+        localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(loginUser));
       } else {
         const user = await fetchMe();
         setAuthUser(user);
+        if (user) {
+          localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+        }
       }
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Login failed");
@@ -1320,6 +1347,9 @@ function App() {
       await registerWithPassword(registerEmail, registerPassword, registerName);
       const user = await fetchMe();
       setAuthUser(user);
+      if (user) {
+        localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+      }
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Registration failed");
     } finally {
@@ -1330,6 +1360,7 @@ function App() {
   const handleLogout = async () => {
     await logoutAuth();
     setAuthUser(null);
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY);
   };
 
   const handleSaveCreator = (newCreator: Creator) => {
