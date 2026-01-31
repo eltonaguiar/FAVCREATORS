@@ -154,8 +154,7 @@ const INITIAL_DATA: Creator[] = [
     id: "3",
     name: "Adin Ross",
     bio: "Kick's No. 1 Creator | Live every day.",
-    avatarUrl:
-      "https://pbs.twimg.com/profile_images/1628173456037085184/D8n_d7_C_400x400.jpg",
+    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=AdinRoss",
     isFavorite: true,
     isPinned: true,
     addedAt: Date.now() - 50000,
@@ -295,7 +294,7 @@ const INITIAL_DATA: Creator[] = [
   },
 ];
 
-const DATA_VERSION = "5.0"; // Increment this to force reset localStorage
+const DATA_VERSION = "6.0"; // Increment this to force reset localStorage
 
 function App() {
   const [creators, setCreators] = useState<Creator[]>(() => {
@@ -787,11 +786,11 @@ function App() {
       creators.map((c) =>
         c.id === id
           ? {
-              ...c,
-              isLive: anyAccountLive,
-              accounts: updatedAccounts,
-              lastChecked: now,
-            }
+            ...c,
+            isLive: anyAccountLive,
+            accounts: updatedAccounts,
+            lastChecked: now,
+          }
           : c,
       ),
     );
