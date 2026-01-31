@@ -6,7 +6,6 @@ import CreatorForm from "./components/CreatorForm";
 import { googleSearchYoutubeChannel } from "./utils/googleSearch";
 import { grabAvatarFromAccounts } from "./utils/avatarGrabber";
 import { extractYoutubeUsername } from "./utils/youtube";
-import { fetchAvatarUrl } from "./utils/avatarFetcher";
 
 const INITIAL_DATA: Creator[] = [
   {
@@ -293,31 +292,6 @@ const INITIAL_DATA: Creator[] = [
 const DATA_VERSION = "7.0"; // Increment this to force reset localStorage
 
 function App() {
-    // Try to fetch and update missing avatars for creators
-    useEffect(() => {
-      async function updateAvatars() {
-        setCreators((prev) => {
-          let changed = false;
-          const updated = prev.map((creator) => {
-            if (!creator.avatarUrl || creator.avatarUrl.includes('dicebear.com')) {
-              // Try to use their first social account for avatar
-              const main = creator.accounts && creator.accounts[0];
-              if (main) {
-                // Use a promise to fetch avatar and update state
-                fetchAvatarUrl(main.platform, main.username).then((avatar) => {
-                  if (avatar && avatar !== creator.avatarUrl) {
-                    setCreators((oldCreators) => oldCreators.map((c) => c.id === creator.id ? { ...c, avatarUrl: avatar } : c));
-                  }
-                });
-              }
-            }
-            return creator;
-          });
-          return updated;
-        });
-      }
-      updateAvatars();
-    }, []);
   const [creators, setCreators] = useState<Creator[]>(() => {
     try {
       const savedVersion = localStorage.getItem("fav_creators_version");

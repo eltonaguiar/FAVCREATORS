@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import type { Creator, SocialAccount, Platform } from "../types";
 import { googleSearchYoutubeChannel } from "../utils/googleSearch";
 import { extractYoutubeUsername } from "../utils/youtube";
+import { grabAvatarFromAccounts } from "../utils/avatarGrabber";
 
 interface CreatorFormProps {
   onSave: (creator: Creator) => void;
@@ -37,6 +38,7 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [category, setCategory] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [newAccount, setNewAccount] = useState({
     platform: "youtube" as Platform,
@@ -79,21 +81,37 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
     setAccounts((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!name.trim()) return;
-    onSave({
-      id: crypto.randomUUID(),
-      name,
-      bio,
-      reason,
-      note,
-      avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${name}`,
-      accounts,
-      isFavorite: false,
-      addedAt: Date.now(),
-      category,
-    });
+    setIsSubmitting(true);
+    try {
+      let resolvedAvatar = avatarUrl.trim();
+      if (!resolvedAvatar && accounts.length > 0) {
+        try {
+          const fetched = await grabAvatarFromAccounts(accounts);
+          if (fetched) resolvedAvatar = fetched;
+        } catch (error) {
+          console.warn("Avatar grabber failed", error);
+        }
+      }
+
+      onSave({
+        id: crypto.randomUUID(),
+        name,
+        bio,
+        reason,
+        note,
+        avatarUrl:
+          resolvedAvatar || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${name}`,
+        accounts,
+        isFavorite: false,
+        addedAt: Date.now(),
+        category,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -240,8 +258,8 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
             <button type="button" onClick={onCancel} className="btn-cancel">
               Cancel
             </button>
-            <button type="submit" className="btn-add">
-              Save Creator
+            <button type="submit" className="btn-add" disabled={isSubmitting}>
+              {isSubmitting ? "Saving…" : "Save Creator"}
             </button>
           </div>
         </form>
