@@ -13,7 +13,7 @@ export default defineConfig({
       },
     },
   ],
-  base: '/FAVCREATORS_TRACKER/', // Target deployment path
+  base: '/FAVCREATORS/', // Target deployment path
   build: {
     outDir: 'docs',
   },

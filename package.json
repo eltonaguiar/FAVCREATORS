@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/create-nojekyll.js",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d docs",
     "lint": "eslint .",
@@ -16,8 +16,10 @@
     "@types/cheerio": "^0.22.35",
     "axios": "^1.13.4",
     "cheerio": "^1.2.0",
+    "node-fetch": "^2.7.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^6.30.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

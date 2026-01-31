@@ -1,5 +1,3 @@
-  // Guest mode detection
-  const isGuestMode = typeof window !== "undefined" && window.location && window.location.pathname.includes("/FAVCREATORS_TRACKER/guest");
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import "./App.css";
 import type { Creator, SocialAccount, Platform } from "./types";
@@ -14,13 +12,89 @@ import {
   registerWithPassword,
   type AuthUser,
 } from "./utils/auth";
+import { grabAvatarV4 } from "./utils/avatarGrabberV4";
 import { grabAvatarFromAccounts } from "./utils/avatarGrabber";
 import { extractYoutubeUsername } from "./utils/youtube";
-import { ensureAvatarForCreators, ensureAvatarUrl } from "./utils/avatar";
-import { fetchViaProxy, fetchWithTimeout as fetchWithTimeoutInternal } from "./utils/proxyFetch";
+import {
+  ensureAvatarForCreators,
+  ensureAvatarUrl,
+  buildAvatarCandidates,
+  buildFallbackAvatar,
+} from "./utils/avatar";
+import {
+  fetchViaProxy,
+  fetchWithTimeout as fetchWithTimeoutInternal,
+} from "./utils/proxyFetch";
+
+// Guest mode detection
+const isGuestMode =
+  typeof window !== "undefined" &&
+  window.location &&
+  window.location.hash.includes("/guest");
 
 // Using centralized proxy fetch from utils/proxyFetch.ts
 const fetchWithTimeout = fetchWithTimeoutInternal;
+
+const mergeCreatorsById = (
+  existing: Creator[],
+  incoming: Creator[],
+): Creator[] => {
+  const existingIds = new Set(existing.map((creator) => creator.id));
+  const merged = [...existing];
+  incoming.forEach((creator) => {
+    if (!existingIds.has(creator.id)) {
+      merged.push(creator);
+      existingIds.add(creator.id);
+    }
+  });
+  return merged;
+};
+
+// Helper to get best avatar using multiple strategies (V4, V1, V10 Failovers)
+const getBestAvatar = async (
+  name: string,
+  accounts: SocialAccount[],
+): Promise<string | null> => {
+  const normalized = name.toLowerCase().trim();
+  const baseUrl = import.meta.env.BASE_URL || "/";
+
+  // 1. Hardcoded Local Caches (Absolute Top Priority & Offline-Safe)
+  if (normalized === "clavicular") {
+    return `${baseUrl}avatars/clavicular.webp`;
+  }
+  if (normalized === "zarthestar" || normalized === "zarthestarcomedy") {
+    return `${baseUrl}avatars/zarthestar.jpg`;
+  }
+  if (normalized === "starfireara") {
+    return `${baseUrl}avatars/starfireara.jpg`;
+  }
+
+  try {
+    // 2. Strategy 1: V4 Scraper (Includes 8 internal sub-strategies: API, Unavatar, HTML Scrape, etc.)
+    const v4Result = await grabAvatarV4(accounts, name);
+    if (v4Result && v4Result.avatarUrl && !v4Result.avatarUrl.includes("dicebear.com") && !v4Result.avatarUrl.includes("ui-avatars.com")) {
+      return v4Result.avatarUrl;
+    }
+
+    // 3. Strategy 2: Original Scraper (Specific platform fallbacks)
+    const v1Result = await grabAvatarFromAccounts(accounts, name);
+    if (v1Result && !v1Result.includes("dicebear.com")) {
+      return v1Result;
+    }
+
+    // 4. Strategy 3: Direct Unavatar Fallback (Safe check)
+    if (accounts.length > 0) {
+      const firstWithUser = accounts.find((a) => a.username);
+      if (firstWithUser) {
+        return `https://unavatar.io/${firstWithUser.platform}/${firstWithUser.username}`;
+      }
+    }
+  } catch (err) {
+    console.warn("Avatar strategies failed", err);
+  }
+
+  return null;
+};
 
 const checkLiveStatus = async (
   platform: string,
@@ -70,40 +144,88 @@ const checkLiveStatus = async (
   }
 
   if (platform === "kick") {
-    try {
-      const apiResponse = await fetchViaProxy(
-        `https://kick.com/api/v2/channels/${username}`,
-      );
-      if (apiResponse) {
-        if (apiResponse.includes('"is_live":true')) return true;
-        if (apiResponse.includes('"is_live":false')) return false;
-        if (apiResponse.includes('"livestream":null')) return false;
+    const normalizeKickDecisionFromText = (text: string): boolean | null => {
+      if (!text) return null;
+      const isLiveMatch = text.match(/"is_live"\s*:\s*(true|false)/i);
+      if (isLiveMatch?.[1]) return isLiveMatch[1].toLowerCase() === "true";
+      if (text.match(/"livestream"\s*:\s*null/i)) return false;
+      return null;
+    };
+
+    const normalizeKickDecisionFromJson = (data: unknown): boolean | null => {
+      if (!data || typeof data !== "object") return null;
+      const obj = data as Record<string, unknown>;
+
+      const directIsLive = obj.is_live;
+      if (typeof directIsLive === "boolean") return directIsLive;
+
+      const livestream = obj.livestream;
+      if (livestream === null) return false;
+      if (livestream && typeof livestream === "object") {
+        const ls = livestream as Record<string, unknown>;
+        if (typeof ls.is_live === "boolean") return ls.is_live;
+        if (typeof ls.isLive === "boolean") return ls.isLive;
+      }
+
+      return null;
+    };
+
+    const tryKickApi = async (url: string): Promise<boolean | null> => {
+      try {
+        const apiResponse = await fetchViaProxy(url);
+        if (!apiResponse) return null;
+
+        const quick = normalizeKickDecisionFromText(apiResponse);
+        if (quick !== null) return quick;
 
         try {
           const data = JSON.parse(apiResponse);
-          if (data.livestream && typeof data.livestream === "object") {
-            return data.livestream.is_live === true;
-          }
-          if (data.livestream === null) {
-            return false;
-          }
+          const parsed = normalizeKickDecisionFromJson(data);
+          if (parsed !== null) return parsed;
         } catch {
-          // Not JSON
+          // ignore
         }
+
+        return null;
+      } catch (e) {
+        console.warn("Kick API check failed", e);
+        return null;
       }
-    } catch (e) {
-      console.warn("Kick API check failed", e);
-    }
+    };
+
+    const v2 = await tryKickApi(`https://kick.com/api/v2/channels/${username}`);
+    if (v2 !== null) return v2;
+
+    const v1 = await tryKickApi(`https://kick.com/api/v1/channels/${username}`);
+    if (v1 !== null) return v1;
 
     try {
       const pageHtml = await fetchViaProxy(`https://kick.com/${username}`);
       if (pageHtml) {
-        if (pageHtml.includes('"is_live":true')) return true;
-        if (
-          pageHtml.includes('"is_live":false') ||
-          pageHtml.includes('"livestream":null')
-        )
-          return false;
+        const quick = normalizeKickDecisionFromText(pageHtml);
+        if (quick !== null) return quick;
+
+        const liveMarkers = [
+          /\bLIVE\b/i,
+          /\blivestream\b/i,
+          /"viewer_count"\s*:\s*\d+/i,
+          /"thumbnail"\s*:\s*"https?:\/\//i,
+        ];
+        for (const marker of liveMarkers) {
+          if (marker.test(pageHtml)) {
+            return true;
+          }
+        }
+
+        const offlineMarkers = [
+          /"livestream"\s*:\s*null/i,
+          /\boffline\b/i,
+        ];
+        for (const marker of offlineMarkers) {
+          if (marker.test(pageHtml)) {
+            return false;
+          }
+        }
       }
     } catch (e) {
       console.warn("Kick page scrape failed", e);
@@ -188,7 +310,7 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
     id: "wtfpreston-1",
     name: "WTFPreston",
     bio: "Comedy musician and streamer dropping weird, funny songs and live bits.",
-    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=WTFPreston",
+    avatarUrl: "",
     isFavorite: false,
     addedAt: Date.now() - 4000,
     lastChecked: Date.now() - 3000,
@@ -237,11 +359,11 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
   {
     id: "clavicular-1",
     name: "Clavicular",
-    bio: "Kick streamer. Added by request.",
+    bio: "Talented streamer and creator. Requested by the community.",
     avatarUrl: "",
     isFavorite: false,
-    addedAt: Date.now() - 1000,
-    lastChecked: Date.now() - 1000,
+    addedAt: Date.now() - 1500,
+    lastChecked: Date.now() - 1500,
     category: "Other",
     accounts: [
       {
@@ -249,16 +371,50 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         platform: "kick",
         username: "clavicular",
         url: "https://kick.com/clavicular",
-        followers: "",
-        lastChecked: Date.now() - 1000,
-      }
+        lastChecked: Date.now() - 1500,
+      },
+      {
+        id: "clavicular-twitch",
+        platform: "twitch",
+        username: "clavicular",
+        url: "https://www.twitch.tv/clavicular",
+        lastChecked: Date.now() - 1500,
+      },
+      {
+        id: "clavicular-linktree",
+        platform: "other",
+        username: "linktr.ee/clavicular0",
+        url: "https://linktr.ee/clavicular0",
+        lastChecked: Date.now() - 1500,
+      },
+    ],
+  },
+  {
+    id: "thebenjishow-1",
+    name: "The Benji Show",
+    bio: "Hilarious skits and comedy bits.",
+    avatarUrl: "",
+    isFavorite: false,
+    isPinned: false,
+    addedAt: Date.now() - 1400,
+    lastChecked: Date.now() - 1400,
+    category: "Hilarious Skits",
+    tags: ["COMEDY", "SKITS"],
+    accounts: [
+      {
+        id: "thebenjishow-tiktok",
+        platform: "tiktok",
+        username: "thebenjishow",
+        url: "https://www.tiktok.com/@thebenjishow?lang=en",
+        lastChecked: Date.now() - 1400,
+      },
     ],
   },
   {
     id: "zarthestar-1",
     name: "Zarthestar",
     bio: "Cosmic content creator and explorer of the digital universe. TikTok comedy & lifestyle.",
-    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Zarthestar",
+    avatarUrl: "",
     isFavorite: false,
     addedAt: Date.now() - 2000,
     lastChecked: Date.now() - 1500,
@@ -316,7 +472,7 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
     id: "3",
     name: "Adin Ross",
     bio: "Kick's No. 1 Creator | Live every day.",
-    avatarUrl: "https://api.dicebear.com/7.x/pixel-art/svg?seed=AdinRoss",
+    avatarUrl: "", // TODO: Set AdinRoss avatar URL here
     isFavorite: true,
     isPinned: true,
     addedAt: Date.now() - 50000,
@@ -352,7 +508,7 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
     id: "6",
     name: "Starfireara",
     bio: "Content creator and visionary.",
-    avatarUrl: "/avatars/starfireara.jpg",
+    avatarUrl: "https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/7b5c9a5a4df3ab57b62df377dd526aa1~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=febc5422&x-expires=1770044400&x-signature=nKafWAOhYHb6mzLmOQtwMiOccJE%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
     isFavorite: true,
     isPinned: true,
     addedAt: Date.now() - 5000,
@@ -377,9 +533,103 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
       },
     ],
   },
+  {
+    id: "chavcriss-1",
+    name: "Chavcriss",
+    bio: "Fitness and comedy influencer. Inspiring and entertaining with every post!",
+    avatarUrl: "",
+    isFavorite: true,
+    isPinned: false,
+    addedAt: Date.now() - 1000,
+    lastChecked: Date.now() - 1000,
+    category: "Fitness",
+    reason: "Fitness & comedy inspiration.",
+    tags: ["FITNESS", "COMEDY", "INSPIRATION"],
+    accounts: [
+      {
+        id: "chavcriss-tiktok",
+        platform: "tiktok",
+        username: "chavcriss",
+        url: "https://www.tiktok.com/@chavcriss",
+        lastChecked: Date.now() - 1000,
+      },
+      {
+        id: "chavcriss-instagram",
+        platform: "instagram",
+        username: "chavcriss",
+        url: "https://www.instagram.com/chavcriss",
+        lastChecked: Date.now() - 1000,
+      },
+      {
+        id: "chavcriss-youtube",
+        platform: "youtube",
+        username: "chavcriss",
+        url: "https://www.youtube.com/@chavcriss",
+        lastChecked: Date.now() - 1000,
+      }
+    ],
+  },
+
+  {
+    id: "jubalfresh-1",
+    name: "Jubal Fresh",
+    bio: "Prank phone calls and radio bits.",
+    avatarUrl: "",
+    isFavorite: false,
+    isPinned: false,
+    addedAt: Date.now() - 1000,
+    lastChecked: Date.now() - 1000,
+    category: "Prank Phone Calls",
+    tags: ["PRANK CALLS", "COMEDY"],
+    accounts: [
+      {
+        id: "jubalfresh-youtube",
+        platform: "youtube",
+        username: "jubalfresh",
+        url: "https://www.youtube.com/@jubalfresh",
+        lastChecked: Date.now() - 1000,
+      },
+      {
+        id: "jubalfresh-tiktok",
+        platform: "tiktok",
+        username: "jubalfresh",
+        url: "https://www.tiktok.com/@jubalfresh",
+        lastChecked: Date.now() - 1000,
+      },
+      {
+        id: "jubalfresh-instagram",
+        platform: "instagram",
+        username: "jubalfresh",
+        url: "https://www.instagram.com/jubalfresh",
+        lastChecked: Date.now() - 1000,
+      },
+    ],
+  },
+
+  {
+    id: "brooke-and-jeffrey-1",
+    name: "Brooke & Jeffrey",
+    bio: "Phone Tap archives and featured prank call segments.",
+    avatarUrl: "",
+    isFavorite: false,
+    isPinned: false,
+    addedAt: Date.now() - 1000,
+    lastChecked: Date.now() - 1000,
+    category: "Other Content",
+    tags: ["PRANK CALLS", "RADIO"],
+    accounts: [
+      {
+        id: "brooke-and-jeffrey-phone-tap",
+        platform: "other",
+        username: "brookeandjeffrey.com Phone Tap",
+        url: "https://www.brookeandjeffrey.com/featured/phone-tap-bjitm/",
+        lastChecked: Date.now() - 1000,
+      },
+    ],
+  },
 ]);
 
-const DATA_VERSION = "9.0"; // Increment this to force reset localStorage
+const DATA_VERSION = "12.0"; // Increment this to force reset localStorage
 const QUICK_ADD_DEFAULT_TAGS = ["LOVE THEIR CONTENT"];
 
 function App() {
@@ -392,8 +642,13 @@ function App() {
   const [registerPassword, setRegisterPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [showLoginForm, setShowLoginForm] = useState(false);
+
   const [creators, setCreators] = useState<Creator[]>(() => {
     try {
+      if (isGuestMode) {
+        // Always use default data in guest mode
+        return INITIAL_DATA;
+      }
       const savedVersion = localStorage.getItem("fav_creators_version");
       // Reset data if version mismatch (categories changed)
       if (savedVersion !== DATA_VERSION) {
@@ -433,18 +688,62 @@ function App() {
   useEffect(() => {
     let isMounted = true;
 
+    const loadDefaultCreatorPacks = async () => {
+      // Use BASE_URL for correct path in development and production
+      const baseUrl = import.meta.env.BASE_URL || "/";
+      const packUrls = [`${baseUrl}clavicular.json`];
+      try {
+        const responses = await Promise.all(
+          packUrls.map((url) => fetch(url).then((res) => (res.ok ? res.json() : null))),
+        );
+
+        const incomingCreators = responses
+          .filter(Boolean)
+          .flatMap((data) => (Array.isArray(data) ? data : [data]))
+          .filter((creator): creator is Creator =>
+            creator && typeof creator.id === "string" && Array.isArray(creator.accounts),
+          );
+
+        if (incomingCreators.length && isMounted) {
+          const sanitized = ensureAvatarForCreators(incomingCreators);
+          setCreators((current) => mergeCreatorsById(current, sanitized));
+        }
+      } catch (error) {
+        console.warn("Failed to load default creator packs", error);
+      }
+    };
+
+    loadDefaultCreatorPacks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
     const fixAllAvatars = async () => {
       const snapshot = creatorsRef.current;
       for (const creator of snapshot) {
         if (!isMounted) return;
-        if (creator.avatarUrl?.includes("dicebear.com")) {
-          const avatar = await grabAvatarFromAccounts(creator.accounts, creator.name);
-          if (avatar && avatar !== creator.avatarUrl && isMounted) {
-            setCreators((oldCreators) =>
-              oldCreators.map((c) =>
-                c.id === creator.id ? { ...c, avatarUrl: avatar } : c,
-              ),
-            );
+        const avatarUrl = creator.avatarUrl || "";
+        const isLocalAvatar = avatarUrl.startsWith("/avatars/");
+        const shouldFetch = isGuestMode || (!isLocalAvatar && avatarUrl.includes("dicebear.com"));
+        if (shouldFetch) {
+          console.log(`[AVATAR] Fetching avatar for ${creator.name} (${creator.id})...`);
+          try {
+            const avatar = await getBestAvatar(creator.name, creator.accounts);
+            if (avatar && avatar !== creator.avatarUrl && isMounted) {
+              console.log(`[AVATAR] Updated avatar for ${creator.name}: ${avatar}`);
+              setCreators((oldCreators) =>
+                oldCreators.map((c) =>
+                  c.id === creator.id ? { ...c, avatarUrl: avatar } : c,
+                ),
+              );
+            }
+          } catch (err) {
+            console.error(`[AVATAR] Error fetching avatar for ${creator.name}:`, err);
           }
         }
       }
@@ -459,6 +758,7 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (isGuestMode) return;
     localStorage.setItem("fav_creators", JSON.stringify(creators));
   }, [creators]);
 
@@ -630,10 +930,10 @@ function App() {
       }
     });
 
-    let fetchedAvatar: string | null = null;
+    let avatarResult: string | null = null;
     if (accounts.length > 0) {
       try {
-        fetchedAvatar = await grabAvatarFromAccounts(accounts, name);
+        avatarResult = await getBestAvatar(name, accounts);
       } catch (error) {
         console.warn("Avatar grabber failed after quick add", error);
       }
@@ -647,7 +947,7 @@ function App() {
         .join(" "),
       bio: `Auto-found social accounts for ${name}`,
       avatarUrl:
-        fetchedAvatar || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${name}`,
+        avatarResult || buildFallbackAvatar({ name } as Creator),
       accounts,
       isFavorite: false,
       isPinned: false,
@@ -920,11 +1220,10 @@ function App() {
     );
   };
 
-  // Refresh avatar for a single creator
   const handleRefreshAvatar = async (id: string) => {
     const creator = creators.find((c) => c.id === id);
     if (!creator) return;
-    const avatar = await grabAvatarFromAccounts(creator.accounts, creator.name);
+    const avatar = await getBestAvatar(creator.name, creator.accounts);
     setCreators((oldCreators) =>
       oldCreators.map((c) =>
         c.id === id
@@ -933,7 +1232,7 @@ function App() {
             avatarUrl:
               avatar && !avatar.includes("dicebear.com")
                 ? avatar
-                : `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(c.name)}`,
+                : buildFallbackAvatar(c),
           }
           : c
       )
@@ -1034,7 +1333,8 @@ function App() {
                       className="btn-secondary"
                       style={{ marginTop: 8, marginBottom: 8 }}
                       onClick={() => {
-                        window.location.href = "/FAVCREATORS_TRACKER/guest";
+                        const base = import.meta.env.BASE_URL || "/";
+                        window.location.href = `${base}#/guest`;
                       }}
                     >
                       Continue as Guest
@@ -1218,7 +1518,7 @@ function App() {
             )}
             <button
               onClick={handleImportSettings}
-              title="Import settings from JSON file"
+              title="Import creators/settings from JSON file"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -1231,7 +1531,7 @@ function App() {
                 cursor: "pointer",
               }}
             >
-              📥 Import
+              📥 Import Settings
             </button>
           </div>
         </div>
@@ -1272,11 +1572,14 @@ function App() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            style={{ minWidth: 140 }}
+            className="filter-dropdown"
           >
             <option value="">All Categories</option>
             <option value="Favorites">Favorites</option>
             <option value="Other">Other</option>
+            <option value="Hilarious Skits">Hilarious Skits</option>
+            <option value="Prank Phone Calls">Prank Phone Calls</option>
+            <option value="Other Content">Other Content</option>
           </select>
 
           {/* View mode toggle */}
@@ -1503,9 +1806,22 @@ function App() {
                     <tr key={creator.id}>
                       <td style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                         <img
-                          src={creator.avatarUrl}
+                          src={creator.avatarUrl || buildFallbackAvatar(creator)}
                           alt=""
-                          style={{ width: "32px", height: "32px", borderRadius: "50%" }}
+                          style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            const candidates = buildAvatarCandidates(creator);
+                            const currentIndex = Number(target.dataset.avatarIndex ?? "0");
+                            const nextIndex = currentIndex + 1;
+                            if (nextIndex < candidates.length) {
+                              target.dataset.avatarIndex = String(nextIndex);
+                              target.src = candidates[nextIndex];
+                              return;
+                            }
+                            const fallback = buildFallbackAvatar(creator);
+                            if (target.src !== fallback) target.src = fallback;
+                          }}
                         />
                         <div style={{ fontWeight: 600 }}>{creator.name}</div>
                       </td>
