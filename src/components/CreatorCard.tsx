@@ -312,6 +312,13 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
         src={avatarSrc}
         alt={creator.name}
         className="creator-avatar"
+        onError={(e) => {
+          const target = e.target as HTMLImageElement;
+          const fallback = buildFallbackAvatar(creator);
+          if (target.src !== fallback) {
+            target.src = fallback;
+          }
+        }}
       />
       <h3 className="creator-name">{creator.name}</h3>
       {creator.category && (
