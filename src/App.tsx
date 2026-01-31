@@ -570,7 +570,7 @@ function App() {
       )}
 
       <footer style={{ marginTop: '5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-        <p>© 2026 FavCreators. Built with ❤️ for creators. v1.1-deploy-fix</p>
+        <p>© 2026 FavCreators. Built with ❤️ for creators. v1.7.5-Production</p>
       </footer>
     </div>
   );
