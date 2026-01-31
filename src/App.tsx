@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import './App.css';
-import type { Creator, SocialAccount } from './types';
+import type { Creator, SocialAccount, Platform } from './types';
 import CreatorCard from './components/CreatorCard';
 import CreatorForm from './components/CreatorForm';
 
@@ -12,10 +12,26 @@ const INITIAL_DATA: Creator[] = [
     bio: 'I want to make the world a better place before I die.',
     avatarUrl: 'https://yt3.googleusercontent.com/ytc/AIdro_n_E3Qh8H-8G4Z_K2o8F-XwJ0R4X-K6M=s176-c-k-c0x00ffffff-no-rj',
     isFavorite: true,
+    lastChecked: Date.now() - 50000,
     addedAt: Date.now(),
     accounts: [
-      { id: '1a', platform: 'youtube', username: 'MrBeast', url: 'https://youtube.com/@MrBeast', followers: '341M' },
-      { id: '1b', platform: 'instagram', username: 'mrbeast', url: 'https://instagram.com/mrbeast', followers: '61.1M' }
+      { id: '1a', platform: 'youtube', username: 'MrBeast', url: 'https://youtube.com/@MrBeast', followers: '341M', lastChecked: Date.now() - 50000 },
+      { id: '1b', platform: 'instagram', username: 'mrbeast', url: 'https://instagram.com/mrbeast', followers: '61.1M', lastChecked: Date.now() - 52000 }
+    ]
+  },
+  {
+    id: '10',
+    name: 'Dream',
+    bio: 'Minecraft storyteller and creator.',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dream',
+    isFavorite: true,
+    isPinned: true,
+    note: 'Track collaborations with the squad.',
+    addedAt: Date.now() - 500,
+    lastChecked: Date.now() - 650,
+    accounts: [
+      { id: '10a', platform: 'youtube', username: 'dream', url: 'https://youtube.com/@Dream', followers: '33M', lastChecked: Date.now() - 650 },
+      { id: '10b', platform: 'twitch', username: 'dreamwastaken', url: 'https://www.twitch.tv/dreamwastaken', followers: '12M', lastChecked: Date.now() - 700 }
     ]
   },
   {
@@ -24,9 +40,12 @@ const INITIAL_DATA: Creator[] = [
     bio: 'Built different. League of Legends legend.',
     avatarUrl: 'https://static-cdn.jtvnw.net/jtv_user_pictures/430374e5-9d5f-4f6c-941f-fd11be43093c-profile_image-70x70.png',
     isFavorite: true,
+    isPinned: true,
+    note: 'Always check on the 1v1 streams.',
     addedAt: Date.now() - 10000,
+    lastChecked: Date.now() - 35000,
     accounts: [
-      { id: '4a', platform: 'twitch', username: 'loltyler1', url: 'https://www.twitch.tv/loltyler1', followers: '5.3M' }
+      { id: '4a', platform: 'twitch', username: 'loltyler1', url: 'https://www.twitch.tv/loltyler1', followers: '5.3M', lastChecked: Date.now() - 36000 }
     ]
   },
   {
@@ -36,8 +55,9 @@ const INITIAL_DATA: Creator[] = [
     avatarUrl: 'https://static-cdn.jtvnw.net/jtv_user_pictures/allecakes-profile_image-0d4ad6e0d37e3d11-70x70.png',
     isFavorite: true,
     addedAt: Date.now() - 20000,
+    lastChecked: Date.now() - 30000,
     accounts: [
-      { id: '5a', platform: 'twitch', username: 'allecakes', url: 'https://www.twitch.tv/allecakes', followers: '1.2M' }
+      { id: '5a', platform: 'twitch', username: 'allecakes', url: 'https://www.twitch.tv/allecakes', followers: '1.2M', lastChecked: Date.now() - 31000 }
     ]
   },
   {
@@ -47,9 +67,10 @@ const INITIAL_DATA: Creator[] = [
     avatarUrl: 'https://pbs.twimg.com/profile_images/1628173456037085184/D8n_d7_C_400x400.jpg',
     isFavorite: true,
     addedAt: Date.now() - 50000,
+    lastChecked: Date.now() - 45000,
     accounts: [
-      { id: '3a', platform: 'kick', username: 'adinross', url: 'https://kick.com/adinross', followers: '1.9M' },
-      { id: '3b', platform: 'youtube', username: 'adinross', url: 'https://youtube.com/@adinross', followers: '4.6M' }
+      { id: '3a', platform: 'kick', username: 'adinross', url: 'https://kick.com/adinross', followers: '1.9M', lastChecked: Date.now() - 47000 },
+      { id: '3b', platform: 'youtube', username: 'adinross', url: 'https://youtube.com/@adinross', followers: '4.6M', lastChecked: Date.now() - 47000 }
     ]
   },
   {
@@ -61,9 +82,10 @@ const INITIAL_DATA: Creator[] = [
     addedAt: Date.now() - 5000,
     reason: 'Motivational speaker',
     isLive: true,
+    lastChecked: Date.now() - 4000,
     accounts: [
-      { id: '6a', platform: 'kick', username: 'starfireara', url: 'https://kick.com/starfireara', followers: '50.2K' },
-      { id: '6b', platform: 'tiktok', username: 'starfireara', url: 'https://www.tiktok.com/@starfireara', followers: '247.3K', isLive: true }
+      { id: '6a', platform: 'kick', username: 'starfireara', url: 'https://kick.com/starfireara', followers: '50.2K', lastChecked: Date.now() - 2500 },
+      { id: '6b', platform: 'tiktok', username: 'starfireara', url: 'https://www.tiktok.com/@starfireara', followers: '247.3K', isLive: true, lastChecked: Date.now() - 4000 }
     ]
   },
   {
@@ -73,8 +95,9 @@ const INITIAL_DATA: Creator[] = [
     avatarUrl: 'https://yt3.googleusercontent.com/lkH3xt4nRzQKoxoxEncyZdx_n9S6S7E3Y2ba9BVA9_5uYx5rOsu_O2fD2m-v-j5v6k=s176-c-k-c0x00ffffff-no-rj',
     isFavorite: false,
     addedAt: Date.now() - 100000,
+    lastChecked: Date.now() - 95000,
     accounts: [
-      { id: '2a', platform: 'youtube', username: 'mkbhd', url: 'https://youtube.com/@mkbhd', followers: '19.6M' }
+      { id: '2a', platform: 'youtube', username: 'mkbhd', url: 'https://youtube.com/@mkbhd', followers: '19.6M', lastChecked: Date.now() - 95000 }
     ]
   },
   {
@@ -84,8 +107,9 @@ const INITIAL_DATA: Creator[] = [
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Tfue',
     isFavorite: false,
     addedAt: Date.now() - 30000,
+    lastChecked: Date.now() - 28000,
     accounts: [
-      { id: '7a', platform: 'twitch', username: 'tfue', url: 'https://www.twitch.tv/tfue', followers: '11.4M' }
+      { id: '7a', platform: 'twitch', username: 'tfue', url: 'https://www.twitch.tv/tfue', followers: '11.4M', lastChecked: Date.now() - 28000 }
     ]
   },
   {
@@ -95,8 +119,9 @@ const INITIAL_DATA: Creator[] = [
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Shroud',
     isFavorite: false,
     addedAt: Date.now() - 40000,
+    lastChecked: Date.now() - 38000,
     accounts: [
-      { id: '8a', platform: 'twitch', username: 'shroud', url: 'https://www.twitch.tv/shroud', followers: '10.9M' }
+      { id: '8a', platform: 'twitch', username: 'shroud', url: 'https://www.twitch.tv/shroud', followers: '10.9M', lastChecked: Date.now() - 38000 }
     ]
   },
   {
@@ -106,21 +131,31 @@ const INITIAL_DATA: Creator[] = [
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Pokimane',
     isFavorite: false,
     addedAt: Date.now() - 50000,
+    lastChecked: Date.now() - 48000,
     accounts: [
-      { id: '9a', platform: 'twitch', username: 'pokimane', url: 'https://www.twitch.tv/pokimane', followers: '9.3M' }
+      { id: '9a', platform: 'twitch', username: 'pokimane', url: 'https://www.twitch.tv/pokimane', followers: '9.3M', lastChecked: Date.now() - 48000 }
     ]
   }
 ];
 
 function App() {
   const [creators, setCreators] = useState<Creator[]>(() => {
-    const saved = localStorage.getItem('fav_creators');
-    return saved ? JSON.parse(saved) : INITIAL_DATA;
+    try {
+      const saved = localStorage.getItem('fav_creators');
+      return saved ? JSON.parse(saved) : INITIAL_DATA;
+    } catch (e) {
+      console.error('Failed to parse creators from localStorage', e);
+      return INITIAL_DATA;
+    }
   });
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [quickAddValue, setQuickAddValue] = useState('fouseytube');
+  const [packPreview, setPackPreview] = useState<Creator[] | null>(null);
+  const [packNotice, setPackNotice] = useState<string | null>(null);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   const checkLiveStatus = async (platform: string, username: string): Promise<boolean> => {
     // 1. Twitch Check (Real via DecAPI)
@@ -170,15 +205,34 @@ function App() {
     localStorage.setItem('fav_creators', JSON.stringify(creators));
   }, [creators]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const pack = params.get('pack');
+    if (!pack) return;
+
+    try {
+      const decoded = JSON.parse(decodeURIComponent(atob(pack))) as Creator[];
+      if (Array.isArray(decoded) && decoded.length > 0) {
+        setPackPreview(decoded);
+        setPackNotice('A shared creator pack is waiting for you.');
+      }
+    } catch (error) {
+      console.warn('Failed to decode shared pack', error);
+      setPackNotice('Could not read the shared creator pack.');
+    }
+  }, []);
+
   const updateAllLiveStatuses = async () => {
     const updatedCreators = await Promise.all(creators.map(async (c) => {
+      const now = Date.now();
       const updatedAccounts = await Promise.all(c.accounts.map(async (acc) => {
         const isLive = await checkLiveStatus(acc.platform, acc.username);
-        return { ...acc, isLive };
+        return { ...acc, isLive, lastChecked: now };
       }));
 
       const anyAccountLive = updatedAccounts.some(acc => acc.isLive);
-      return { ...c, isLive: anyAccountLive, accounts: updatedAccounts };
+      return { ...c, isLive: anyAccountLive, accounts: updatedAccounts, lastChecked: now };
     }));
 
     setCreators(updatedCreators);
@@ -233,21 +287,30 @@ function App() {
     }
 
     const accounts: SocialAccount[] = [];
+    const now = Date.now();
 
     requestedPlatforms.forEach(p => {
-      const platform = p.toLowerCase();
+      const platform = p.toLowerCase() as Platform;
       const id = crypto.randomUUID();
       const cleanUsername = name.toLowerCase().replace(/\s+/g, '');
       const dummyFollowers = (Math.random() * 5 + 0.5).toFixed(1) + 'M';
 
+      const baseAccount = {
+        id,
+        platform,
+        username: cleanUsername,
+        followers: dummyFollowers,
+        lastChecked: now
+      };
+
       if (platform === 'kick') {
-        accounts.push({ id, platform: 'kick', username: cleanUsername, url: `https://kick.com/${cleanUsername}`, followers: dummyFollowers });
+        accounts.push({ ...baseAccount, url: `https://kick.com/${cleanUsername}` });
       } else if (platform === 'twitch') {
-        accounts.push({ id, platform: 'twitch', username: cleanUsername, url: `https://twitch.tv/${cleanUsername}`, followers: dummyFollowers });
+        accounts.push({ ...baseAccount, url: `https://twitch.tv/${cleanUsername}` });
       } else if (platform === 'youtube') {
-        accounts.push({ id, platform: 'youtube', username: cleanUsername, url: `https://youtube.com/@${cleanUsername}`, followers: dummyFollowers });
+        accounts.push({ ...baseAccount, url: `https://youtube.com/@${cleanUsername}` });
       } else if (platform === 'tiktok') {
-        accounts.push({ id, platform: 'tiktok', username: cleanUsername, url: `https://tiktok.com/@${cleanUsername}`, followers: dummyFollowers });
+        accounts.push({ ...baseAccount, url: `https://tiktok.com/@${cleanUsername}` });
       }
     });
 
@@ -258,7 +321,10 @@ function App() {
       avatarUrl: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${name}`,
       accounts,
       isFavorite: false,
-      addedAt: Date.now()
+      isPinned: false,
+      note: '',
+      addedAt: now,
+      lastChecked: now
     };
 
     setCreators([newCreator, ...creators]);
@@ -281,15 +347,58 @@ function App() {
     const creator = creators.find(c => c.id === id);
     if (!creator) return;
 
+    const now = Date.now();
     const updatedAccounts = await Promise.all(creator.accounts.map(async (acc) => {
       const isLive = await checkLiveStatus(acc.platform, acc.username);
-      return { ...acc, isLive };
+      return { ...acc, isLive, lastChecked: now };
     }));
 
     const anyAccountLive = updatedAccounts.some(acc => acc.isLive);
     setCreators(creators.map(c =>
-      c.id === id ? { ...c, isLive: anyAccountLive, accounts: updatedAccounts } : c
+      c.id === id ? { ...c, isLive: anyAccountLive, accounts: updatedAccounts, lastChecked: now } : c
     ));
+  };
+
+  const applySharedPack = () => {
+    if (!packPreview) return;
+    setCreators(packPreview);
+    setPackPreview(null);
+    setPackNotice('Shared creator pack applied.');
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('pack');
+      const search = params.toString();
+      window.history.replaceState({}, '', `${window.location.pathname}${search ? `?${search}` : ''}`);
+    }
+  };
+
+  const handleSharePack = async () => {
+    if (typeof window === 'undefined') return;
+
+    const payload = btoa(encodeURIComponent(JSON.stringify(creators)));
+    const shareUrl = `${window.location.origin}${window.location.pathname}?pack=${payload}`;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const field = document.createElement('textarea');
+        field.value = shareUrl;
+        document.body.appendChild(field);
+        field.select();
+        document.execCommand('copy');
+        document.body.removeChild(field);
+      }
+      setShareFeedback('Share link copied to clipboard!');
+    } catch (error) {
+      console.error('Share pack copy failed', error);
+      setShareFeedback('Copy failed. You can still share the URL manually.');
+    }
+
+    setTimeout(() => {
+      setShareFeedback(null);
+    }, 3500);
   };
 
   const handleRefreshStatus = async () => {
@@ -319,6 +428,18 @@ function App() {
     ));
   };
 
+  const handleTogglePin = (id: string) => {
+    setCreators(creators.map(c =>
+      c.id === id ? { ...c, isPinned: !c.isPinned } : c
+    ));
+  };
+
+  const handleUpdateNote = (id: string, note: string) => {
+    setCreators(creators.map(c =>
+      c.id === id ? { ...c, note } : c
+    ));
+  };
+
   const handleRemoveAccount = (creatorId: string, accountId: string) => {
     setCreators(creators.map(c =>
       c.id === creatorId
@@ -328,11 +449,17 @@ function App() {
   };
 
   const filteredCreators = creators
-    .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.bio.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(c => {
+      const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.bio.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = !categoryFilter || c.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    })
     .sort((a, b) => {
-      if (a.isFavorite === b.isFavorite) return b.addedAt - a.addedAt;
-      return a.isFavorite ? -1 : 1;
+      const priority = (creator: Creator) => (creator.isPinned ? 2 : creator.isFavorite ? 1 : 0);
+      const priorityDiff = priority(b) - priority(a);
+      if (priorityDiff !== 0) return priorityDiff;
+      return b.addedAt - a.addedAt;
     });
 
   return (
@@ -356,13 +483,23 @@ function App() {
       </div>
 
       <div className="controls">
-        <div className="search-bar">
+        <div className="search-bar" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <input
             type="text"
             placeholder="Search creators..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={{ minWidth: 140 }}>
+            <option value="">All Categories</option>
+            <option value="Education">Education</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Gaming">Gaming</option>
+            <option value="Music">Music</option>
+            <option value="Tech">Tech</option>
+            <option value="Lifestyle">Lifestyle</option>
+            <option value="Other">Other</option>
+          </select>
         </div>
         <div style={{ display: 'flex', gap: '0.8rem' }}>
           <button className="btn-secondary" onClick={handleResetDatabase} title="Reset to official data">
@@ -374,11 +511,26 @@ function App() {
           <button className="btn-secondary" onClick={handleRefreshStatus} title="Check all live statuses">
             📡 Live check
           </button>
+          <button className="btn-secondary" onClick={handleSharePack} title="Share this creator pack">
+            🔗 Share pack
+          </button>
           <button className="btn-add" onClick={() => setIsFormOpen(true)}>
             <span>+</span> Add Creator
           </button>
         </div>
+        {shareFeedback && <p className="share-feedback">{shareFeedback}</p>}
       </div>
+
+      {packPreview && (
+        <div className="pack-notice">
+          <p>
+            A creator pack was shared through the URL. <button className="btn-add" onClick={applySharedPack}>Apply pack</button>
+          </p>
+        </div>
+      )}
+      {!packPreview && packNotice && (
+        <div className="pack-notice">{packNotice}</div>
+      )}
 
       <div className="creator-grid">
         {filteredCreators.map(creator => (
@@ -389,6 +541,8 @@ function App() {
             onDelete={handleDeleteCreator}
             onRemoveAccount={handleRemoveAccount}
             onCheckStatus={handleCheckCreatorStatus}
+            onTogglePin={handleTogglePin}
+            onUpdateNote={handleUpdateNote}
           />
         ))}
         {filteredCreators.length === 0 && (
@@ -406,7 +560,7 @@ function App() {
       )}
 
       <footer style={{ marginTop: '5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-        <p>© 2026 FavCreators. Built with ❤️ for creators.</p>
+        <p>© 2026 FavCreators. Built with ❤️ for creators. v1.1-deploy-fix</p>
       </footer>
     </div>
   );

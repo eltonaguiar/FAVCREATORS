@@ -1,19 +1,42 @@
-# React + TypeScript + Vite
+# FAVCREATORS
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+FavCreators is a React + TypeScript experience built with Vite. It lets you track favorite creators, surface live accounts, export your list, and always keep a polished card grid even on GitHub Pages.
 
-Currently, two official plugins are available:
+[🌐 Live Demo on GitHub Pages](https://eltonaguiar.github.io/FAVCREATORS/)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Development
+
+- `npm run dev` — Launch the Vite dev server with hot reload on `localhost:5173`.
+- `npm run build` — Compile the app for production (`dist` folder).
+- `npm run lint` — Run ESLint over the project.
+- `npm run preview` — Spin up the built app locally for verification.
+
+## GitHub Pages
+
+- `npm run predeploy` builds the site and creates `dist/.nojekyll` so GitHub Pages serves the React bundle instead of the README.
+- `npm run deploy` runs that build step and then pushes the `dist` folder to the `gh-pages` branch via `gh-pages -d dist`.
+- The workflow in `.github/workflows/deploy.yml` automatically runs `npm run deploy` on pushes to `main`/`master` and can be triggered manually via `workflow_dispatch`.
+- After the workflow succeeds, go to **Settings → Pages** and set the source to the `gh-pages` branch (root) so GitHub Pages no longer renders the README and serves the React bundle instead.
+
+## Sharing Creator Packs
+
+- Click **Share pack** (next to the Live check control) to encode your current list—pins, notes, live-status metadata, and everything—into a short URL. It copies to your clipboard so you can paste it into chat, docs, or threads.
+- Anyone opening a URL with `?pack=…` will see a banner describing the shared pack and can choose to apply it. The query string is cleared afterward so the link stays reusable.
+
+## React + TypeScript + Vite
+
+This repository started from the Vite + React + TypeScript template, so it ships with a minimal ESLint config and Fast Refresh via [`@vitejs/plugin-react`](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react).
+
+- [`@vitejs/plugin-react`](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses Babel (or [oxc](https://oxc.rs) when used in rolldown-vite) for Fast Refresh.
+- [`@vitejs/plugin-react-swc`](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses SWC for Fast Refresh.
 
 ## React Compiler
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The React Compiler is not enabled in this template because of the performance impact on dev/build. To enable it, see the [React Compiler installation guide](https://react.dev/learn/react-compiler/installation).
 
 ## Expanding the ESLint configuration
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+To get the most out of ESLint, consider enabling the type-aware rules listed below:
 
 ```js
 export default defineConfig([
@@ -22,52 +45,18 @@ export default defineConfig([
     files: ['**/*.{ts,tsx}'],
     extends: [
       // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
       tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
       tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
       tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
     ],
     languageOptions: {
       parserOptions: {
         project: ['./tsconfig.node.json', './tsconfig.app.json'],
         tsconfigRootDir: import.meta.dirname,
       },
-      // other options...
     },
   },
 ])
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+You can also add [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for richer React linting.

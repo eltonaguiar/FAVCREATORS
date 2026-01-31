@@ -240,6 +240,103 @@ h1 {
   font-style: italic;
 }
 
+.creator-note-wrapper {
+  margin-bottom: 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.creator-note-wrapper label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.creator-note {
+  width: 100%;
+  min-height: 60px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 0.8rem;
+  color: white;
+  font-size: 0.85rem;
+  resize: vertical;
+  transition: border-color 0.2s ease;
+}
+
+.creator-note:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.creator-last-checked {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.pack-notice {
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--text-muted);
+}
+
+.pack-notice p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.share-feedback {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.6rem;
+}
+
+.health-score {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.health-score span {
+  font-weight: 600;
+}
+
+.health-score .health-meter {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.health-score .health-meter span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #34d399, #4f46e5);
+  border-radius: inherit;
+  transition: width 0.2s ease;
+}
+
+.health-score .health-label {
+  font-weight: 700;
+  color: white;
+}
+
 .reason-label {
   font-weight: 700;
   text-transform: uppercase;

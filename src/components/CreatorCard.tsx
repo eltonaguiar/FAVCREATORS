@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { Creator } from '../types';
 
 interface CreatorCardProps {
@@ -8,10 +8,56 @@ interface CreatorCardProps {
     onDelete: (id: string) => void;
     onRemoveAccount: (creatorId: string, accountId: string) => void;
     onCheckStatus: (id: string) => Promise<void>;
+    onTogglePin: (id: string) => void;
+    onUpdateNote: (id: string, note: string) => void;
 }
 
-const CreatorCard: React.FC<CreatorCardProps> = ({ creator, onToggleFavorite, onDelete, onRemoveAccount, onCheckStatus }) => {
-    const [checking, setChecking] = React.useState(false);
+const formatRelativeTime = (timestamp?: number) => {
+    if (!timestamp) return 'Not checked yet';
+    const diffMs = Date.now() - timestamp;
+    const diffMinutes = Math.round(diffMs / 60000);
+
+    if (diffMinutes < 1) return 'Checked just now';
+    if (diffMinutes < 60) return `Checked ${diffMinutes}m ago`;
+
+    const diffHours = Math.round(diffMinutes / 60);
+    if (diffHours < 24) return `Checked ${diffHours}h ago`;
+
+    return `Checked ${new Date(timestamp).toLocaleDateString()}`;
+};
+
+const parseFollowersCount = (followers?: string) => {
+    if (!followers) return 0;
+    const normalized = followers.replace(/,/g, '').trim().toLowerCase();
+    const numberMatch = normalized.match(/[\d.]+/);
+    if (!numberMatch) return 0;
+
+    let value = parseFloat(numberMatch[0]);
+    if (normalized.includes('m')) value *= 1_000_000;
+    else if (normalized.includes('k')) value *= 1_000;
+
+    return isFinite(value) ? value : 0;
+};
+
+const computeHealthScore = (creator: Creator) => {
+    const followerSum = creator.accounts.reduce((sum, acc) => sum + parseFollowersCount(acc.followers), 0);
+    const base = Math.min(80, (followerSum / 1_000_000) * 10);
+    let score = base;
+    if (creator.isLive) score += 10;
+    if (creator.isPinned) score += 5;
+    if (creator.isFavorite) score += 5;
+    return Math.min(100, Math.max(10, Math.round(score)));
+};
+
+const CreatorCard: React.FC<CreatorCardProps> = ({ creator, onToggleFavorite, onDelete, onRemoveAccount, onCheckStatus, onTogglePin, onUpdateNote }) => {
+    const [checking, setChecking] = useState(false);
+    const [noteDraft, setNoteDraft] = useState(creator.note || '');
+
+    const healthScore = useMemo(() => computeHealthScore(creator), [creator]);
+
+    useEffect(() => {
+        setNoteDraft(creator.note || '');
+    }, [creator.note]);
 
     const getPlatformIcon = (platform: string) => {
         switch (platform) {
@@ -76,6 +122,13 @@ const CreatorCard: React.FC<CreatorCardProps> = ({ creator, onToggleFavorite, on
                     {checking ? '⏳' : '📡'}
                 </button>
                 <button
+                    onClick={() => onTogglePin(creator.id)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
+                    title={creator.isPinned ? 'Unpin creator' : 'Pin creator'}
+                >
+                    {creator.isPinned ? '📌' : '📍'}
+                </button>
+                <button
                     onClick={() => onToggleFavorite(creator.id)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
                 >
@@ -91,12 +144,46 @@ const CreatorCard: React.FC<CreatorCardProps> = ({ creator, onToggleFavorite, on
 
             <img src={creator.avatarUrl || 'https://via.placeholder.com/80'} alt={creator.name} className="creator-avatar" />
             <h3 className="creator-name">{creator.name}</h3>
+            {creator.category && (
+                <div className="creator-category" style={{ fontSize: '0.9rem', color: '#7dd3fc', marginBottom: 4 }}>
+                    {creator.category}
+                </div>
+            )}
             <p className="creator-bio">{creator.bio}</p>
             {creator.reason && (
                 <div className="creator-reason">
                     <span className="reason-label">Reason:</span> {creator.reason}
                 </div>
             )}
+
+            <div className="health-score" title="More followers/live + pinned boosts the score">
+                <span>Creator health</span>
+                <div className="health-meter">
+                    <span style={{ width: `${healthScore}%` }} />
+                </div>
+                <span className="health-label">{healthScore}%</span>
+            </div>
+
+            <div className="creator-note-wrapper">
+                <label htmlFor={`note-${creator.id}`}>Personal note</label>
+                <textarea
+                    id={`note-${creator.id}`}
+                    className="creator-note"
+                    value={noteDraft}
+                    placeholder="Add context, reminders, or how you met them"
+                    onChange={(e) => setNoteDraft(e.target.value)}
+                    onBlur={() => {
+                        if ((creator.note || '') !== noteDraft) {
+                            onUpdateNote(creator.id, noteDraft);
+                        }
+                    }}
+                    rows={3}
+                />
+            </div>
+
+            <div className="creator-last-checked">
+                {formatRelativeTime(creator.lastChecked)}
+            </div>
 
             <div className="accounts-list">
                 {creator.accounts.map(account => (
