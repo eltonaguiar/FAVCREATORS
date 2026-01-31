@@ -11,10 +11,10 @@ const INITIAL_DATA: Creator[] = [
     bio: "I want to make the world a better place before I die.",
     avatarUrl:
       "https://yt3.googleusercontent.com/ytc/AIdro_n_E3Qh8H-8G4Z_K2o8F-XwJ0R4X-K6M=s176-c-k-c0x00ffffff-no-rj",
-    isFavorite: true,
+    isFavorite: false,
     lastChecked: Date.now() - 50000,
     addedAt: Date.now(),
-    category: "Entertainment",
+    category: "Streamers",
     accounts: [
       {
         id: "1a",
@@ -39,12 +39,11 @@ const INITIAL_DATA: Creator[] = [
     name: "Dream",
     bio: "Minecraft storyteller and creator.",
     avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Dream",
-    isFavorite: true,
-    isPinned: true,
+    isFavorite: false,
     note: "Track collaborations with the squad.",
     addedAt: Date.now() - 500,
     lastChecked: Date.now() - 650,
-    category: "Gaming",
+    category: "Streamers",
     accounts: [
       {
         id: "10a",
@@ -70,12 +69,11 @@ const INITIAL_DATA: Creator[] = [
     bio: "Built different. League of Legends legend.",
     avatarUrl:
       "https://static-cdn.jtvnw.net/jtv_user_pictures/430374e5-9d5f-4f6c-941f-fd11be43093c-profile_image-70x70.png",
-    isFavorite: true,
-    isPinned: true,
+    isFavorite: false,
     note: "Always check on the 1v1 streams.",
     addedAt: Date.now() - 10000,
     lastChecked: Date.now() - 35000,
-    category: "Gaming",
+    category: "Streamers",
     accounts: [
       {
         id: "4a",
@@ -93,10 +91,10 @@ const INITIAL_DATA: Creator[] = [
     bio: "Variety streamer and content creator.",
     avatarUrl:
       "https://static-cdn.jtvnw.net/jtv_user_pictures/allecakes-profile_image-0d4ad6e0d37e3d11-70x70.png",
-    isFavorite: true,
+    isFavorite: false,
     addedAt: Date.now() - 20000,
     lastChecked: Date.now() - 30000,
-    category: "Entertainment",
+    category: "Streamers",
     accounts: [
       {
         id: "5a",
@@ -115,9 +113,10 @@ const INITIAL_DATA: Creator[] = [
     avatarUrl:
       "https://pbs.twimg.com/profile_images/1628173456037085184/D8n_d7_C_400x400.jpg",
     isFavorite: true,
+    isPinned: true,
     addedAt: Date.now() - 50000,
     lastChecked: Date.now() - 45000,
-    category: "Entertainment",
+    category: "Favorites",
     accounts: [
       {
         id: "3a",
@@ -143,11 +142,12 @@ const INITIAL_DATA: Creator[] = [
     bio: "Content creator and visionary.",
     avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Starfireara",
     isFavorite: true,
+    isPinned: true,
     addedAt: Date.now() - 5000,
     reason: "Motivational speaker",
     isLive: true,
     lastChecked: Date.now() - 4000,
-    category: "Lifestyle",
+    category: "Favorites",
     accounts: [
       {
         id: "6a",
@@ -177,7 +177,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 100000,
     lastChecked: Date.now() - 95000,
-    category: "Tech",
+    category: "Streamers",
     accounts: [
       {
         id: "2a",
@@ -197,7 +197,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 30000,
     lastChecked: Date.now() - 28000,
-    category: "Gaming",
+    category: "Streamers",
     accounts: [
       {
         id: "7a",
@@ -217,7 +217,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 40000,
     lastChecked: Date.now() - 38000,
-    category: "Gaming",
+    category: "Streamers",
     accounts: [
       {
         id: "8a",
@@ -237,7 +237,7 @@ const INITIAL_DATA: Creator[] = [
     isFavorite: false,
     addedAt: Date.now() - 50000,
     lastChecked: Date.now() - 48000,
-    category: "Entertainment",
+    category: "Streamers",
     accounts: [
       {
         id: "9a",
