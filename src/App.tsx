@@ -32,6 +32,8 @@ const isGuestMode =
   window.location &&
   window.location.hash.includes("/guest");
 
+const PUBLIC_CREATORS_STORAGE_KEY = "fav_creators_public";
+
 // Using centralized proxy fetch from utils/proxyFetch.ts
 const fetchWithTimeout = fetchWithTimeoutInternal;
 
@@ -813,17 +815,22 @@ function App() {
     const persist = async () => {
       if (!authUser) return;
       try {
-        const base = getAuthBase();
         if (authUser.provider === "admin") {
-          await fetch(`${base}/creators/bulk`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ creators }),
-          });
+          try {
+            const base = getAuthBase();
+            await fetch(`${base}/creators/bulk`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ creators }),
+            });
+          } catch {
+            localStorage.setItem(PUBLIC_CREATORS_STORAGE_KEY, JSON.stringify(creators));
+          }
           return;
         }
 
+        const base = getAuthBase();
         await fetch(`${base}/creators/mine`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -835,7 +842,7 @@ function App() {
       }
     };
 
-    if (isGuestMode) return;
+    if (isGuestMode && authUser?.provider !== "admin") return;
     if (!authUser) return;
     if (authUser.provider !== "admin" && !hasLoadedMineRef.current) return;
 
@@ -865,12 +872,20 @@ function App() {
   useEffect(() => {
     const loadFromServer = async () => {
       try {
-        const base = getAuthBase();
-        const res = await fetch(`${base}/creators/public`, {
-          credentials: "include",
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as { creators?: any[] };
+        let data: { creators?: any[] } = {};
+        try {
+          const base = getAuthBase();
+          const res = await fetch(`${base}/creators/public`, {
+            credentials: "include",
+          });
+          if (!res.ok) return;
+          data = (await res.json()) as { creators?: any[] };
+        } catch {
+          const raw = localStorage.getItem(PUBLIC_CREATORS_STORAGE_KEY);
+          if (raw) {
+            data = { creators: JSON.parse(raw) };
+          }
+        }
         if (Array.isArray(data.creators) && data.creators.length) {
           const normalized = data.creators.map((c) => ({
             id: c.id,
