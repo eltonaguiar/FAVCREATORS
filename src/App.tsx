@@ -318,9 +318,6 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "dropdown">("list");
-  const [featuredFilter, setFeaturedFilter] = useState<
-    "all" | "adinross" | "starfireara"
-  >("all");
   const [quickAddValue, setQuickAddValue] = useState("fouseytube");
   const [packPreview, setPackPreview] = useState<Creator[] | null>(null);
   const [packNotice, setPackNotice] = useState<string | null>(null);
@@ -930,32 +927,6 @@ function App() {
     </div>
   );
 
-  // Render featured filter dropdown (for Favorites: Adin Ross, Starfireara)
-  const renderFeaturedFilterDropdown = () => (
-    <div style={{ marginBottom: "1rem" }}>
-      <label style={{ marginRight: "0.5rem" }}>Featured Filter:</label>
-      <select
-        value={featuredFilter}
-        onChange={(e) =>
-          setFeaturedFilter(
-            e.target.value as "all" | "adinross" | "starfireara",
-          )
-        }
-        style={{
-          padding: "0.5rem",
-          borderRadius: "4px",
-          border: "1px solid var(--border)",
-          background: "var(--card-bg)",
-          color: "var(--text)",
-        }}
-      >
-        <option value="all">All Favorites</option>
-        <option value="adinross">Adin Ross Only</option>
-        <option value="starfireara">Starfireara Only</option>
-      </select>
-    </div>
-  );
-
   return (
     <div className="app-container">
       <header>
@@ -966,7 +937,6 @@ function App() {
       </header>
 
       {renderViewModeToggle()}
-      {renderFeaturedFilterDropdown()}
 
       <div className="quick-add-group">
         <input
@@ -1030,31 +1000,6 @@ function App() {
               Dropdown filter
             </button>
           </div>
-
-          {/* Featured filter dropdown (only in dropdown mode) */}
-          {viewMode === "dropdown" && (
-            <div
-              className="featured-filter-container"
-              style={{ display: "flex", alignItems: "center", gap: "8px" }}
-            >
-              <label
-                htmlFor="featured-filter-select"
-                style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}
-              >
-                Filter:
-              </label>
-              <select
-                id="featured-filter-select"
-                value={featuredFilter}
-                onChange={(e) => setFeaturedFilter(e.target.value as any)}
-                style={{ minWidth: 140 }}
-              >
-                <option value="all">All Creators</option>
-                <option value="adinross">Adin Ross only</option>
-                <option value="starfireara">Starfireara only</option>
-              </select>
-            </div>
-          )}
         </div>
         <div style={{ display: "flex", gap: "0.8rem" }}>
           <button
@@ -1220,14 +1165,7 @@ function App() {
                 const matchesCategory =
                   !categoryFilter || c.category === categoryFilter;
 
-                if (!matchesSearch || !matchesCategory) return false;
-
-                if (featuredFilter === "adinross") {
-                  return c.name.toLowerCase().includes("adin ross");
-                } else if (featuredFilter === "starfireara") {
-                  return c.name.toLowerCase().includes("starfireara");
-                }
-                return true; // "all" mode
+                return matchesSearch && matchesCategory;
               })
               .map((creator) => (
                 <CreatorCard
