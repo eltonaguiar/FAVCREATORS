@@ -3,6 +3,7 @@ import { googleSearchImage } from "./googleSearch";
 
 const ALLORIGINS_PROXY = "https://api.allorigins.win/raw?url=";
 const THINGPROXY = "https://thingproxy.freeboard.io/fetch/";
+const JINA_PROXY = "https://r.jina.ai/";
 const PLATFORM_PRIORITY: SocialAccount["platform"][] = [
   "instagram",
   "youtube",
@@ -12,9 +13,10 @@ const PLATFORM_PRIORITY: SocialAccount["platform"][] = [
   "other",
 ];
 
-const buildProxyUrl = (targetUrl: string, proxyType: 'allorigins' | 'thingproxy'): string => {
+const buildProxyUrl = (targetUrl: string, proxyType: 'allorigins' | 'thingproxy' | 'jina'): string => {
   if (proxyType === 'allorigins') return `${ALLORIGINS_PROXY}${encodeURIComponent(targetUrl)}`;
   if (proxyType === 'thingproxy') return `${THINGPROXY}${targetUrl}`;
+  if (proxyType === 'jina') return `${JINA_PROXY}${targetUrl}`;
   return targetUrl;
 };
 
@@ -30,62 +32,118 @@ const fetchWithTimeout = async (url: string, timeoutMs = 9000): Promise<Response
   }
 };
 
-const extractOgImage = (html: string): string | null => {
+const extractAvatarFromHtml = (html: string): string | null => {
+  // 1. Try Kick specific ID first (common for Kick profiles)
+  const kickAvatarMatch = html.match(/id\s*=\s*["']channel-avatar["'][^>]+src\s*=\s*["']([^"']+)["']/i) ||
+    html.match(/src\s*=\s*["']([^"']+)["'][^>]+id\s*=\s*["']channel-avatar["']/i);
+  if (kickAvatarMatch && kickAvatarMatch[1]) {
+    return kickAvatarMatch[1];
+  }
+
+  // 2. Try og:image
   const metaMatch =
-    html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i) ||
-    html.match(/<meta\s+name="og:image"\s+content="([^"]+)"/i);
+    html.match(/<meta\s+(?:property|name)=["']og:image["']\s+content=["']([^"']+)["']/i);
   if (metaMatch && metaMatch[1]) {
     const url = metaMatch[1].split("?")[0];
     if (url.startsWith("http")) {
       return url;
     }
   }
-  const linkMatch = html.match(/<link\s+rel="image_src"\s+href="([^"]+)"/i);
+
+  // 3. Try image_src link
+  const linkMatch = html.match(/<link\s+rel=["']image_src["']\s+href=["']([^"']+)["']/i);
   if (linkMatch && linkMatch[1] && linkMatch[1].startsWith("http")) {
     return linkMatch[1];
   }
+
   return null;
 };
 
-const fetchAvatarFromUrl = async (url: string): Promise<string | null> => {
-  // Try direct fetch first
+const fetchAvatarFromUrl = async (url: string, platform?: string, username?: string): Promise<string | null> => {
+  // 1. Try platform-specific API for Twitch
+  if (platform === "twitch" && username) {
+    try {
+      // Use Twitch public API (no auth needed for this endpoint)
+      const apiUrl = `https://decapi.me/twitch/avatar/${username}`;
+      const resp = await fetchWithTimeout(apiUrl);
+      if (resp.ok) {
+        const avatarUrl = await resp.text();
+        if (avatarUrl && avatarUrl.startsWith("http")) return avatarUrl.trim();
+      }
+    } catch (err) {
+      console.warn("Twitch API avatar fetch failed", err);
+    }
+  }
+  // 2. Try platform-specific API for Kick
+  if (platform === "kick" && username) {
+    try {
+      // Use proxy for Kick API as direct fetch often fails CORS
+      const apiUrl = `https://kick.com/api/v2/channels/${username}`;
+      const proxyApiUrl = buildProxyUrl(apiUrl, 'allorigins');
+      const resp = await fetchWithTimeout(proxyApiUrl);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.user && data.user.profile_picture) {
+          return data.user.profile_picture;
+        }
+      }
+    } catch (err) {
+      console.warn("Kick API avatar fetch failed", err);
+    }
+  }
+  // 3. Try scraping HTML as fallback
   try {
     const response = await fetchWithTimeout(url);
     if (response.ok) {
       const html = await response.text();
-      const ogImage = extractOgImage(html);
-      if (ogImage) return ogImage;
-      console.warn("No og:image found (direct)", url);
+      const avatar = extractAvatarFromHtml(html);
+      if (avatar) return avatar;
+      console.warn("No avatar found (direct)", url);
     } else {
       console.warn("Direct fetch failed", url, response.status, response.statusText);
     }
   } catch (error) {
     console.warn("Direct fetch error", url, error);
   }
-  // Try allorigins.win proxy
+  // 4. Try allorigins.win proxy
   try {
     const proxyUrl = buildProxyUrl(url, 'allorigins');
     const response = await fetchWithTimeout(proxyUrl);
     if (response.ok) {
       const html = await response.text();
-      const ogImage = extractOgImage(html);
-      if (ogImage) return ogImage;
-      console.warn("No og:image found (allorigins)", url);
+      const avatar = extractAvatarFromHtml(html);
+      if (avatar) return avatar;
+      console.warn("No avatar found (allorigins)", url);
     } else {
       console.warn("Allorigins proxy fetch failed", proxyUrl, response.status, response.statusText);
     }
   } catch (error) {
     console.warn("Allorigins proxy error", url, error);
   }
-  // Try thingproxy.freeboard.io as last resort
+  // 5. Try Jina proxy (highly effective for bypassing Cloudflare)
+  try {
+    const proxyUrl = buildProxyUrl(url, 'jina');
+    const response = await fetchWithTimeout(proxyUrl);
+    if (response.ok) {
+      const html = await response.text();
+      const avatar = extractAvatarFromHtml(html);
+      if (avatar) return avatar;
+      console.warn("No avatar found (jina)", url);
+    } else {
+      console.warn("Jina proxy fetch failed", proxyUrl, response.status, response.statusText);
+    }
+  } catch (error) {
+    console.warn("Jina proxy error", url, error);
+  }
+  // 6. Try thingproxy.freeboard.io as last resort
   try {
     const proxyUrl = buildProxyUrl(url, 'thingproxy');
     const response = await fetchWithTimeout(proxyUrl);
     if (response.ok) {
       const html = await response.text();
-      const ogImage = extractOgImage(html);
-      if (ogImage) return ogImage;
-      console.warn("No og:image found (thingproxy)", url);
+      const avatar = extractAvatarFromHtml(html);
+      if (avatar) return avatar;
+      console.warn("No avatar found (thingproxy)", url);
     } else {
       console.warn("Thingproxy fetch failed", proxyUrl, response.status, response.statusText);
     }
@@ -106,7 +164,7 @@ export async function grabAvatarFromAccounts(
     );
     for (const account of platformAccounts) {
       try {
-        const avatar = await fetchAvatarFromUrl(account.url);
+        const avatar = await fetchAvatarFromUrl(account.url, account.platform, account.username);
         if (avatar) return avatar;
       } catch (err) {
         console.warn(`Failed to fetch avatar from ${account.platform}`, err);

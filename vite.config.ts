@@ -13,7 +13,7 @@ export default defineConfig({
       },
     },
   ],
-  base: '/FAVCREATORS/', // Correct base for GitHub Pages project site
+  base: '/FAVCREATORS_TRACKER/', // Target deployment path
   build: {
     outDir: 'docs',
   },

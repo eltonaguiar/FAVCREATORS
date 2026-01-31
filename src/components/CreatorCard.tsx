@@ -67,15 +67,23 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
   onCheckStatus,
   onTogglePin,
   onUpdateNote,
+  onRefreshAvatar,
 }) => {
+  if (typeof onRefreshAvatar !== "function") {
+    if (process.env.NODE_ENV !== "production") {
+      // eslint-disable-next-line no-console
+      console.error("onRefreshAvatar prop is missing in CreatorCard");
+    }
+    throw new Error("onRefreshAvatar prop is required in CreatorCard");
+  }
   const [checking, setChecking] = useState(false);
   const [accountSummaries, setAccountSummaries] = useState<Record<string, SummaryEntry>>({});
   const [refreshingAvatar, setRefreshingAvatar] = useState(false);
-    const handleRefreshAvatar = async () => {
-      setRefreshingAvatar(true);
-      await onRefreshAvatar(creator.id);
-      setRefreshingAvatar(false);
-    };
+  const handleRefreshAvatar = async () => {
+    setRefreshingAvatar(true);
+    await onRefreshAvatar(creator.id);
+    setRefreshingAvatar(false);
+  };
   const isMountedRef = useRef(true);
 
   const healthScore = useMemo(() => computeHealthScore(creator), [creator]);
@@ -300,11 +308,11 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
         </button>
       </div>
 
-        <img
-          src={avatarSrc}
-          alt={creator.name}
-          className="creator-avatar"
-        />
+      <img
+        src={avatarSrc}
+        alt={creator.name}
+        className="creator-avatar"
+      />
       <h3 className="creator-name">{creator.name}</h3>
       {creator.category && (
         <div
@@ -364,19 +372,19 @@ const CreatorCard: React.FC<CreatorCardProps> = ({
             summaryEntry?.status === "loading"
               ? "Gathering summary..."
               : summaryEntry?.text ||
-                "Hover to fetch a brief public summary of this profile.";
+              "Hover to fetch a brief public summary of this profile.";
           return (
             <div
               key={account.id}
               className={`account-link ${account.platform}`}
-            onMouseEnter={() => handleAccountHover(account)}
-          >
+              onMouseEnter={() => handleAccountHover(account)}
+            >
               <a
                 href={account.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 onFocus={() => handleAccountHover(account)}
-              style={{
+                style={{
                   display: "flex",
                   alignItems: "center",
                   gap: "0.4rem",

@@ -31,27 +31,29 @@ const fetchViaProxy = async (
   targetUrl: string,
   retries: number = 2,
 ): Promise<string | null> => {
-  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(
-    targetUrl,
-  )}`;
+  const proxies = [
+    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    (url: string) => `https://r.jina.ai/${url}`,
+  ];
 
   for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      if (attempt > 0) {
-        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-      }
-      const response = await fetchWithTimeout(proxyUrl, PROXY_FETCH_TIMEOUT);
-      if (response.ok) {
-        const text = await response.text();
-        if (text && text.length > 50) {
-          return text;
+    for (const proxyBuilder of proxies) {
+      try {
+        const proxyUrl = proxyBuilder(targetUrl);
+        const response = await fetchWithTimeout(proxyUrl, PROXY_FETCH_TIMEOUT);
+        if (response.ok) {
+          const text = await response.text();
+          if (text && text.length > 50) {
+            return text;
+          }
         }
+      } catch (e) {
+        console.warn(`Proxy fetch failed for ${targetUrl} via ${proxyBuilder.toString()}`, e);
       }
-    } catch (e) {
-      console.warn(`Proxy fetch attempt ${attempt + 1} failed for ${targetUrl}`, e);
-      if (attempt === retries) {
-        return null;
-      }
+    }
+
+    if (attempt < retries) {
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
     }
   }
   return null;
@@ -511,7 +513,7 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
     id: "6",
     name: "Starfireara",
     bio: "Content creator and visionary.",
-    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Starfireara",
+    avatarUrl: "https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/7b5c9a5a4df3ab57b62df377dd526aa1~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=65ec1255&x-expires=1770040800&x-signature=Vki8Wv2HnxielGjRYKpcYOVnvZo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
     isFavorite: true,
     isPinned: true,
     addedAt: Date.now() - 5000,
