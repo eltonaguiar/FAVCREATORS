@@ -1,63 +1,26 @@
+  // Guest mode detection
+  const isGuestMode = typeof window !== "undefined" && window.location && window.location.pathname.includes("/FAVCREATORS_TRACKER/guest");
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import "./App.css";
 import type { Creator, SocialAccount, Platform } from "./types";
 import CreatorCard from "./components/CreatorCard";
 import CreatorForm from "./components/CreatorForm";
 import { googleSearchYoutubeChannel } from "./utils/googleSearch";
+import {
+  fetchMe,
+  getAuthBase,
+  loginWithPassword,
+  logout as logoutAuth,
+  registerWithPassword,
+  type AuthUser,
+} from "./utils/auth";
 import { grabAvatarFromAccounts } from "./utils/avatarGrabber";
 import { extractYoutubeUsername } from "./utils/youtube";
 import { ensureAvatarForCreators, ensureAvatarUrl } from "./utils/avatar";
+import { fetchViaProxy, fetchWithTimeout as fetchWithTimeoutInternal } from "./utils/proxyFetch";
 
-const APPCORS_FETCH_TIMEOUT = 8000;
-const PROXY_FETCH_TIMEOUT = 10000;
-
-const fetchWithTimeout = async (
-  url: string,
-  timeoutMs: number = APPCORS_FETCH_TIMEOUT,
-): Promise<Response> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (e) {
-    clearTimeout(timeoutId);
-    throw e;
-  }
-};
-
-const fetchViaProxy = async (
-  targetUrl: string,
-  retries: number = 2,
-): Promise<string | null> => {
-  const proxies = [
-    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    (url: string) => `https://r.jina.ai/${url}`,
-  ];
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    for (const proxyBuilder of proxies) {
-      try {
-        const proxyUrl = proxyBuilder(targetUrl);
-        const response = await fetchWithTimeout(proxyUrl, PROXY_FETCH_TIMEOUT);
-        if (response.ok) {
-          const text = await response.text();
-          if (text && text.length > 50) {
-            return text;
-          }
-        }
-      } catch (e) {
-        console.warn(`Proxy fetch failed for ${targetUrl} via ${proxyBuilder.toString()}`, e);
-      }
-    }
-
-    if (attempt < retries) {
-      await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
-    }
-  }
-  return null;
-};
+// Using centralized proxy fetch from utils/proxyFetch.ts
+const fetchWithTimeout = fetchWithTimeoutInternal;
 
 const checkLiveStatus = async (
   platform: string,
@@ -222,50 +185,6 @@ const checkLiveStatus = async (
 
 const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
   {
-    id: "1",
-    name: "MrBeast",
-    bio: "I want to make the world a better place before I die.",
-    avatarUrl:
-      "https://yt3.googleusercontent.com/ytc/AIdro_n_E3Qh8H-8G4Z_K2o8F-XwJ0R4X-K6M=s176-c-k-c0x00ffffff-no-rj",
-    isFavorite: false,
-    lastChecked: Date.now() - 50000,
-    addedAt: Date.now(),
-    category: "Other",
-    accounts: [
-      {
-        id: "1a",
-        platform: "youtube",
-        username: "MrBeast",
-        url: "https://youtube.com/@MrBeast",
-        followers: "341M",
-        lastChecked: Date.now() - 50000,
-      },
-      {
-        id: "1b",
-        platform: "instagram",
-        username: "mrbeast",
-        url: "https://instagram.com/mrbeast",
-        followers: "61.1M",
-        lastChecked: Date.now() - 52000,
-      },
-      {
-        id: "mrbeast-linktree",
-        platform: "other",
-        username: "linktr.ee/mrbeast",
-        url: "https://linktr.ee/mrbeast",
-        lastChecked: Date.now() - 50000,
-      },
-      {
-        id: "mrbeast-x",
-        platform: "other",
-        username: "MrBeast",
-        url: "https://twitter.com/MrBeast",
-        followers: "33.9M",
-        lastChecked: Date.now() - 50000,
-      },
-    ],
-  },
-  {
     id: "wtfpreston-1",
     name: "WTFPreston",
     bio: "Comedy musician and streamer dropping weird, funny songs and live bits.",
@@ -313,6 +232,26 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         url: "https://music.apple.com/us/artist/wtfpreston/1851052017",
         lastChecked: Date.now() - 3000,
       },
+    ],
+  },
+  {
+    id: "clavicular-1",
+    name: "Clavicular",
+    bio: "Kick streamer. Added by request.",
+    avatarUrl: "",
+    isFavorite: false,
+    addedAt: Date.now() - 1000,
+    lastChecked: Date.now() - 1000,
+    category: "Other",
+    accounts: [
+      {
+        id: "clavicular-kick",
+        platform: "kick",
+        username: "clavicular",
+        url: "https://kick.com/clavicular",
+        followers: "",
+        lastChecked: Date.now() - 1000,
+      }
     ],
   },
   {
@@ -374,106 +313,6 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
     ],
   },
   {
-    id: "10",
-    name: "Dream",
-    bio: "Minecraft storyteller and creator.",
-    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Dream",
-    isFavorite: false,
-    note: "Track collaborations with the squad.",
-    addedAt: Date.now() - 500,
-    lastChecked: Date.now() - 650,
-    category: "Other",
-    accounts: [
-      {
-        id: "10a",
-        platform: "youtube",
-        username: "dream",
-        url: "https://youtube.com/@Dream",
-        followers: "33M",
-        lastChecked: Date.now() - 650,
-      },
-      {
-        id: "10b",
-        platform: "twitch",
-        username: "dreamwastaken",
-        url: "https://www.twitch.tv/dreamwastaken",
-        followers: "12M",
-        lastChecked: Date.now() - 700,
-      },
-      {
-        id: "dream-linktree",
-        platform: "other",
-        username: "linktr.ee/dream",
-        url: "https://linktr.ee/dream",
-        lastChecked: Date.now() - 650,
-      },
-    ],
-  },
-  {
-    id: "4",
-    name: "Tyler1",
-    bio: "Built different. League of Legends legend.",
-    avatarUrl:
-      "https://static-cdn.jtvnw.net/jtv_user_pictures/430374e5-9d5f-4f6c-941f-fd11be43093c-profile_image-70x70.png",
-    isFavorite: false,
-    note: "Always check on the 1v1 streams.",
-    addedAt: Date.now() - 10000,
-    lastChecked: Date.now() - 35000,
-    category: "Other",
-    accounts: [
-      {
-        id: "4a",
-        platform: "twitch",
-        username: "loltyler1",
-        url: "https://www.twitch.tv/loltyler1",
-        followers: "5.3M",
-        lastChecked: Date.now() - 36000,
-      },
-      {
-        id: "tyler1-linktree",
-        platform: "other",
-        username: "linktr.ee/loltyler1",
-        url: "https://linktr.ee/loltyler1",
-        lastChecked: Date.now() - 28000,
-      },
-      {
-        id: "tyler1-site",
-        platform: "other",
-        username: "loltyler1.com",
-        url: "https://www.loltyler1.com",
-        lastChecked: Date.now() - 28000,
-      },
-    ],
-  },
-  {
-    id: "5",
-    name: "Allecakes",
-    bio: "Variety streamer and content creator.",
-    avatarUrl:
-      "https://static-cdn.jtvnw.net/jtv_user_pictures/allecakes-profile_image-0d4ad6e0d37e3d11-70x70.png",
-    isFavorite: false,
-    addedAt: Date.now() - 20000,
-    lastChecked: Date.now() - 30000,
-    category: "Other",
-    accounts: [
-      {
-        id: "5a",
-        platform: "twitch",
-        username: "allecakes",
-        url: "https://www.twitch.tv/allecakes",
-        followers: "1.2M",
-        lastChecked: Date.now() - 31000,
-      },
-      {
-        id: "allecakes-linktree",
-        platform: "other",
-        username: "linktr.ee/allecakes",
-        url: "https://linktr.ee/allecakes",
-        lastChecked: Date.now() - 30000,
-      },
-    ],
-  },
-  {
     id: "3",
     name: "Adin Ross",
     bio: "Kick's No. 1 Creator | Live every day.",
@@ -513,12 +352,11 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
     id: "6",
     name: "Starfireara",
     bio: "Content creator and visionary.",
-    avatarUrl: "https://api.dicebear.com/7.x/pixel-art/svg?seed=Starfireara",
+    avatarUrl: "/avatars/starfireara.jpg",
     isFavorite: true,
     isPinned: true,
     addedAt: Date.now() - 5000,
     reason: "Motivational speaker",
-    isLive: true,
     lastChecked: Date.now() - 4000,
     category: "Favorites",
     accounts: [
@@ -528,7 +366,6 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
         username: "starfireara",
         url: "https://www.tiktok.com/@starfireara",
         followers: "247.3K",
-        isLive: true,
         lastChecked: Date.now() - 4000,
       },
       {
@@ -540,121 +377,21 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
       },
     ],
   },
-  {
-    id: "2",
-    name: "Marques Brownlee",
-    bio: "Quality Tech Videos | MKBHD",
-    avatarUrl:
-      "https://yt3.googleusercontent.com/lkH3xt4nRzQKoxoxEncyZdx_n9S6S7E3Y2ba9BVA9_5uYx5rOsu_O2fD2m-v-j5v6k=s176-c-k-c0x00ffffff-no-rj",
-    isFavorite: false,
-    addedAt: Date.now() - 100000,
-    lastChecked: Date.now() - 95000,
-    category: "Other",
-    accounts: [
-      {
-        id: "2a",
-        platform: "youtube",
-        username: "mkbhd",
-        url: "https://youtube.com/@mkbhd",
-        followers: "19.6M",
-        lastChecked: Date.now() - 95000,
-      },
-      {
-        id: "mkbhd-linktree",
-        platform: "other",
-        username: "linktr.ee/mkbhd",
-        url: "https://linktr.ee/mkbhd",
-        lastChecked: Date.now() - 95000,
-      },
-    ],
-  },
-  {
-    id: "7",
-    name: "Tfue",
-    bio: "Professional Gaming Legend.",
-    avatarUrl: "https://api.dicebear.com/7.x/pixel-art/svg?seed=Tfue",
-    isFavorite: false,
-    addedAt: Date.now() - 30000,
-    lastChecked: Date.now() - 28000,
-    category: "Other",
-    accounts: [
-      {
-        id: "7a",
-        platform: "twitch",
-        username: "tfue",
-        url: "https://www.twitch.tv/tfue",
-        followers: "11.4M",
-        lastChecked: Date.now() - 28000,
-      },
-      {
-        id: "tfue-linktree",
-        platform: "other",
-        username: "linktr.ee/tfue_live",
-        url: "https://linktr.ee/tfue_live",
-        lastChecked: Date.now() - 28000,
-      },
-    ],
-  },
-  {
-    id: "8",
-    name: "Shroud",
-    bio: "The human aimbot.",
-    avatarUrl: "https://api.dicebear.com/7.x/pixel-art/svg?seed=Shroud",
-    isFavorite: false,
-    addedAt: Date.now() - 40000,
-    lastChecked: Date.now() - 38000,
-    category: "Other",
-    accounts: [
-      {
-        id: "8a",
-        platform: "twitch",
-        username: "shroud",
-        url: "https://www.twitch.tv/shroud",
-        followers: "10.9M",
-        lastChecked: Date.now() - 38000,
-      },
-      {
-        id: "shroud-linktree",
-        platform: "other",
-        username: "linktr.ee/shroud",
-        url: "https://linktr.ee/shroud",
-        lastChecked: Date.now() - 38000,
-      },
-    ],
-  },
-  {
-    id: "9",
-    name: "Pokimane",
-    bio: "Voted best variety streamer.",
-    avatarUrl: "https://api.dicebear.com/7.x/pixel-art/svg?seed=Pokimane",
-    isFavorite: false,
-    addedAt: Date.now() - 50000,
-    lastChecked: Date.now() - 48000,
-    category: "Other",
-    accounts: [
-      {
-        id: "9a",
-        platform: "twitch",
-        username: "pokimane",
-        url: "https://www.twitch.tv/pokimane",
-        followers: "9.3M",
-        lastChecked: Date.now() - 48000,
-      },
-      {
-        id: "pokimane-linktree",
-        platform: "other",
-        username: "linktr.ee/pokimane",
-        url: "https://linktr.ee/pokimane",
-        lastChecked: Date.now() - 48000,
-      },
-    ],
-  },
 ]);
 
-const DATA_VERSION = "8.0"; // Increment this to force reset localStorage
+const DATA_VERSION = "9.0"; // Increment this to force reset localStorage
 const QUICK_ADD_DEFAULT_TAGS = ["LOVE THEIR CONTENT"];
 
 function App() {
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [registerName, setRegisterName] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [showLoginForm, setShowLoginForm] = useState(false);
   const [creators, setCreators] = useState<Creator[]>(() => {
     try {
       const savedVersion = localStorage.getItem("fav_creators_version");
@@ -724,6 +461,20 @@ function App() {
   useEffect(() => {
     localStorage.setItem("fav_creators", JSON.stringify(creators));
   }, [creators]);
+
+  useEffect(() => {
+    if (!isGuestMode) {
+      const loadUser = async () => {
+        try {
+          const user = await fetchMe();
+          setAuthUser(user);
+        } catch (error) {
+          console.warn("Auth check failed", error);
+        }
+      };
+      void loadUser();
+    }
+  }, [isGuestMode]);
 
   // No longer checking for shared pack in URL
 
@@ -1082,6 +833,54 @@ function App() {
     }
   };
 
+  const handleGoogleLogin = () => {
+    try {
+      const base = getAuthBase();
+      window.location.href = `${base}/auth/google`;
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : "Missing VITE_AUTH_BASE_URL",
+      );
+    }
+  };
+
+  const handleLogin = async () => {
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const loginUser = await loginWithPassword(loginEmail, loginPassword);
+      if (loginUser?.provider === "admin") {
+        setAuthUser(loginUser);
+      } else {
+        const user = await fetchMe();
+        setAuthUser(user);
+      }
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Login failed");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      await registerWithPassword(registerEmail, registerPassword, registerName);
+      const user = await fetchMe();
+      setAuthUser(user);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Registration failed");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logoutAuth();
+    setAuthUser(null);
+  };
+
   const handleSaveCreator = (newCreator: Creator) => {
     setCreators([ensureAvatarUrl(newCreator), ...creators]);
     setIsFormOpen(false);
@@ -1220,41 +1019,203 @@ function App() {
             </p>
           </div>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button
-              onClick={handleSaveSettings}
-              title="Save settings to browser cookies"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "0.5rem 1rem",
-                background: "var(--accent)",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontWeight: 500,
-              }}
-            >
-              💾 Save
-            </button>
-            <button
-              onClick={handleExportSettings}
-              title="Export settings to JSON file"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "0.5rem 1rem",
-                background: "var(--card-bg)",
-                color: "var(--text)",
-                border: "1px solid var(--border)",
-                borderRadius: "6px",
-                cursor: "pointer",
-              }}
-            >
-              📤 Export
-            </button>
+            <div className="auth-panel">
+              <div className="auth-panel__header">
+                <span>Account</span>
+                {authUser ? (
+                  <button className="auth-link" onClick={handleLogout}>
+                    Sign out
+                  </button>
+                ) : (
+                  isGuestMode ? (
+                    <span className="auth-status">Guest mode</span>
+                  ) : (
+                    <button
+                      className="btn-secondary"
+                      style={{ marginTop: 8, marginBottom: 8 }}
+                      onClick={() => {
+                        window.location.href = "/FAVCREATORS_TRACKER/guest";
+                      }}
+                    >
+                      Continue as Guest
+                    </button>
+                  )
+                )}
+              </div>
+              {authUser ? (
+                <div className="auth-user">
+                  <div className="auth-user__name">
+                    {authUser.display_name || authUser.email || "Signed in"}
+                  </div>
+                  <div className="auth-user__meta">
+                    {authUser.provider ? `Provider: ${authUser.provider}` : ""}
+                  </div>
+                </div>
+              ) : (
+                isGuestMode ? (
+                  <div className="auth-actions">
+                    <div className="auth-hint">
+                      You are browsing as a guest. To save or customize, please log in or create an account.
+                    </div>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setShowLoginForm((prev) => !prev)}
+                    >
+                      {showLoginForm ? "Hide login" : "Login"}
+                    </button>
+                    {showLoginForm && (
+                      <>
+                        <button className="btn-google" onClick={handleGoogleLogin}>
+                          Continue with Google
+                        </button>
+                        <div className="auth-divider">or use email</div>
+                        <input
+                          type="email"
+                          placeholder="Email"
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                        />
+                        <input
+                          type="password"
+                          placeholder="Password"
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                        />
+                        <button
+                          className="btn-secondary"
+                          onClick={() => void handleLogin()}
+                          disabled={authLoading}
+                        >
+                          Email login (or admin/admin)
+                        </button>
+                        <div className="auth-divider">new here?</div>
+                        <input
+                          type="text"
+                          placeholder="Display name"
+                          value={registerName}
+                          onChange={(e) => setRegisterName(e.target.value)}
+                        />
+                        <input
+                          type="email"
+                          placeholder="Email"
+                          value={registerEmail}
+                          onChange={(e) => setRegisterEmail(e.target.value)}
+                        />
+                        <input
+                          type="password"
+                          placeholder="Password (12+ chars incl. upper/lower/digit/symbol)"
+                          value={registerPassword}
+                          onChange={(e) => setRegisterPassword(e.target.value)}
+                        />
+                        <button
+                          className="btn-secondary"
+                          onClick={() => void handleRegister()}
+                          disabled={authLoading}
+                        >
+                          Create account
+                        </button>
+                        {authError && <div className="auth-error">{authError}</div>}
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="auth-actions">
+                    <button className="btn-google" onClick={handleGoogleLogin}>
+                      Continue with Google
+                    </button>
+                    <div className="auth-divider">or use email</div>
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                    />
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                    />
+                    <button
+                      className="btn-secondary"
+                      onClick={() => void handleLogin()}
+                      disabled={authLoading}
+                    >
+                      Email login (or admin/admin)
+                    </button>
+                    <div className="auth-divider">new here?</div>
+                    <input
+                      type="text"
+                      placeholder="Display name"
+                      value={registerName}
+                      onChange={(e) => setRegisterName(e.target.value)}
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={registerEmail}
+                      onChange={(e) => setRegisterEmail(e.target.value)}
+                    />
+                    <input
+                      type="password"
+                      placeholder="Password (12+ chars incl. upper/lower/digit/symbol)"
+                      value={registerPassword}
+                      onChange={(e) => setRegisterPassword(e.target.value)}
+                    />
+                    <button
+                      className="btn-secondary"
+                      onClick={() => void handleRegister()}
+                      disabled={authLoading}
+                    >
+                      Create account
+                    </button>
+                    {authError && <div className="auth-error">{authError}</div>}
+                    <div className="auth-hint">
+                      Guest mode stays available for browsing default creators.
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+            {!isGuestMode && (
+              <>
+                <button
+                  onClick={handleSaveSettings}
+                  title="Save settings to browser cookies"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "0.5rem 1rem",
+                    background: "var(--accent)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontWeight: 500,
+                  }}
+                >
+                  💾 Save
+                </button>
+                <button
+                  onClick={handleExportSettings}
+                  title="Export settings to JSON file"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "0.5rem 1rem",
+                    background: "var(--card-bg)",
+                    color: "var(--text)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                  }}
+                >
+                  📤 Export
+                </button>
+              </>
+            )}
             <button
               onClick={handleImportSettings}
               title="Import settings from JSON file"
