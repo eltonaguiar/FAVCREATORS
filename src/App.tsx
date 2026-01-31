@@ -4,6 +4,7 @@ import type { Creator, SocialAccount, Platform } from "./types";
 import CreatorCard from "./components/CreatorCard";
 import CreatorForm from "./components/CreatorForm";
 import { googleSearchYoutubeChannel } from "./utils/googleSearch";
+import { grabAvatarFromAccounts } from "./utils/avatarGrabber";
 import { extractYoutubeUsername } from "./utils/youtube";
 import { fetchAvatarUrl } from "./utils/avatarFetcher";
 
@@ -734,6 +735,15 @@ function App() {
       }
     });
 
+    let fetchedAvatar: string | null = null;
+    if (accounts.length > 0) {
+      try {
+        fetchedAvatar = await grabAvatarFromAccounts(accounts);
+      } catch (error) {
+        console.warn("Avatar grabber failed after quick add", error);
+      }
+    }
+
     const newCreator: Creator = {
       id: crypto.randomUUID(),
       name: name
@@ -741,7 +751,8 @@ function App() {
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" "),
       bio: `Auto-found social accounts for ${name}`,
-      avatarUrl: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${name}`,
+      avatarUrl:
+        fetchedAvatar || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${name}`,
       accounts,
       isFavorite: false,
       isPinned: false,
