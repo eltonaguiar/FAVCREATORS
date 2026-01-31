@@ -15,9 +15,27 @@ def is_tiktok_live(username):
         resp = requests.get(url, headers=headers, timeout=10)
         if resp.status_code != 200:
             return False, {"error": f"HTTP {resp.status_code}"}
-        # TikTok live page contains a special marker if the user is live
-        is_live = 'isLive":true' in resp.text or 'LIVE NOW' in resp.text
-        return is_live, {"status_code": resp.status_code, "checked_url": url}
+        html = resp.text
+        # Stricter: require both a <video> element and a live badge, and no story/offline markers
+        has_video = '<video' in html
+        has_live_badge = 'data-e2e="live-badge"' in html or 'LIVE NOW' in html or 'isLive":true' in html
+        is_story = 'story' in html.lower()
+        is_offline = (
+            'LIVE_UNAVAILABLE' in html
+            or '"status":2' in html
+            or 'This LIVE has ended' in html
+            or 'currently unavailable' in html
+        )
+        is_live = has_video and has_live_badge and not is_story and not is_offline
+        details = {
+            "status_code": resp.status_code,
+            "checked_url": url,
+            "has_video": has_video,
+            "has_live_badge": has_live_badge,
+            "is_story": is_story,
+            "is_offline": is_offline
+        }
+        return is_live, details
     except Exception as e:
         return False, {"error": str(e)}
 

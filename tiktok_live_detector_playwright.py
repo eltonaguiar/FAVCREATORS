@@ -32,25 +32,36 @@ async def is_tiktok_live_playwright(username):
         await page.wait_for_selector('body', timeout=15000)
         is_live = False
         details = {}
-        # Try to detect live badge, video, or "LIVE NOW" text
         try:
-            # Wait for a live badge or video element (if present)
             badge = await page.query_selector('span[data-e2e="live-badge"]')
-            if badge:
-                badge_text = await badge.inner_text()
-                if "LIVE" in badge_text.upper():
-                    is_live = True
-                    details['badge_text'] = badge_text
-            # Check for video element (live stream)
+            badge_text = (await badge.inner_text()) if badge else ""
             video = await page.query_selector('video')
-            if video:
-                is_live = True
-                details['video_found'] = True
-            # Check for "LIVE NOW" text in the DOM
             content = await page.content()
-            if 'LIVE NOW' in content or 'isLive":true' in content:
+            has_live_badge = badge and "LIVE" in badge_text.upper()
+            has_video = video is not None
+            is_story = "story" in content.lower()
+            is_offline = (
+                "LIVE_UNAVAILABLE" in content
+                or '"status":2' in content
+                or "This LIVE has ended" in content
+                or "currently unavailable" in content
+            )
+            # Only mark as live if both video and live badge, and not a story or offline
+            if has_video and has_live_badge and not is_story and not is_offline:
                 is_live = True
-                details['live_now_text'] = True
+                details['badge_text'] = badge_text
+                details['video_found'] = True
+            else:
+                is_live = False
+                if is_offline:
+                    details['offline_reason'] = 'offline marker found'
+                if is_story:
+                    details['story_detected'] = True
+            # For debugging, add all checks
+            details['has_video'] = has_video
+            details['has_live_badge'] = has_live_badge
+            details['is_story'] = is_story
+            details['is_offline'] = is_offline
         except Exception as e:
             details['exception'] = str(e)
         await browser.close()

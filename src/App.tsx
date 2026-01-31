@@ -5,6 +5,7 @@ import CreatorCard from "./components/CreatorCard";
 import CreatorForm from "./components/CreatorForm";
 import { googleSearchYoutubeChannel } from "./utils/googleSearch";
 import { extractYoutubeUsername } from "./utils/youtube";
+import { fetchAvatarUrl } from "./utils/avatarFetcher";
 
 const INITIAL_DATA: Creator[] = [
   {
@@ -291,6 +292,31 @@ const INITIAL_DATA: Creator[] = [
 const DATA_VERSION = "7.0"; // Increment this to force reset localStorage
 
 function App() {
+    // Try to fetch and update missing avatars for creators
+    useEffect(() => {
+      async function updateAvatars() {
+        setCreators((prev) => {
+          let changed = false;
+          const updated = prev.map((creator) => {
+            if (!creator.avatarUrl || creator.avatarUrl.includes('dicebear.com')) {
+              // Try to use their first social account for avatar
+              const main = creator.accounts && creator.accounts[0];
+              if (main) {
+                // Use a promise to fetch avatar and update state
+                fetchAvatarUrl(main.platform, main.username).then((avatar) => {
+                  if (avatar && avatar !== creator.avatarUrl) {
+                    setCreators((oldCreators) => oldCreators.map((c) => c.id === creator.id ? { ...c, avatarUrl: avatar } : c));
+                  }
+                });
+              }
+            }
+            return creator;
+          });
+          return updated;
+        });
+      }
+      updateAvatars();
+    }, []);
   const [creators, setCreators] = useState<Creator[]>(() => {
     try {
       const savedVersion = localStorage.getItem("fav_creators_version");
@@ -494,47 +520,25 @@ function App() {
       return null; // Check failed, status unknown
     }
 
-    // 3. TikTok Check (Real via Proxy with improved detection)
+    // 3. TikTok Check (Stricter: avoid story false positives)
     if (platform === "tiktok") {
       try {
         const html = await fetchViaProxy(
           `https://www.tiktok.com/@${username}/live`,
         );
         if (html) {
-          // TikTok live page markers
-          const isLiveIndicators = [
-            '"status":4', // Status 4 often means live on TikTok
-            '"liveRoomUserInfo"',
-            '"LiveRoom"',
-            "room_id",
-            '"isLiveStreaming":true',
-          ];
-          const isOfflineIndicators = [
-            "LIVE_UNAVAILABLE",
-            '"status":2', // Status 2 often means offline
-            "This LIVE has ended",
-            "currently unavailable",
-          ];
+          // Stricter: require both a <video> element and a live badge, and no story/offline markers
+          const hasVideo = /<video[\s>]/i.test(html);
+          const hasLiveBadge = /data-e2e="live-badge"/i.test(html) || /LIVE NOW/i.test(html) || /"isLive":true/.test(html);
+          const isStory = /story/i.test(html);
+          const isOffline = /LIVE_UNAVAILABLE|"status":2|This LIVE has ended|currently unavailable/i.test(html);
 
-          // Check for live indicators
-          for (const indicator of isLiveIndicators) {
-            if (html.includes(indicator)) {
-              // Make sure it's not also showing offline
-              let hasOfflineIndicator = false;
-              for (const offIndicator of isOfflineIndicators) {
-                if (html.includes(offIndicator)) {
-                  hasOfflineIndicator = true;
-                  break;
-                }
-              }
-              if (!hasOfflineIndicator) return true;
-            }
+          // Only return true if video and live badge, and not a story or offline
+          if (hasVideo && hasLiveBadge && !isStory && !isOffline) {
+            return true;
           }
-
-          // Check for definite offline indicators
-          for (const indicator of isOfflineIndicators) {
-            if (html.includes(indicator)) return false;
-          }
+          // If definite offline markers
+          if (isOffline) return false;
         }
       } catch (e) {
         console.warn("TikTok check failed", e);
