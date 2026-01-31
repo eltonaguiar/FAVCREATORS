@@ -59,13 +59,14 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
                         <label>Category</label>
                         <select value={category} onChange={e => setCategory(e.target.value)} required>
                             <option value="">Select category</option>
+                            <option value="Favorites">Favorites</option>
+                            <option value="Other">Other</option>
                             <option value="Education">Education</option>
                             <option value="Entertainment">Entertainment</option>
                             <option value="Gaming">Gaming</option>
                             <option value="Music">Music</option>
                             <option value="Tech">Tech</option>
                             <option value="Lifestyle">Lifestyle</option>
-                            <option value="Other">Other</option>
                         </select>
                     </div>
                     <div className="form-group">

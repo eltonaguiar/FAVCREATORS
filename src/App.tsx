@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+// Build version: 2026-01-30-v4 - Single proxy only
 import "./App.css";
 import type { Creator, SocialAccount, Platform } from "./types";
 import CreatorCard from "./components/CreatorCard";
@@ -791,11 +792,11 @@ function App() {
       creators.map((c) =>
         c.id === id
           ? {
-            ...c,
-            isLive: anyAccountLive,
-            accounts: updatedAccounts,
-            lastChecked: now,
-          }
+              ...c,
+              isLive: anyAccountLive,
+              accounts: updatedAccounts,
+              lastChecked: now,
+            }
           : c,
       ),
     );
@@ -1117,4 +1118,3 @@ function App() {
 }
 
 export default App;
-
