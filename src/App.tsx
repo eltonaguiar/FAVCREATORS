@@ -981,8 +981,11 @@ function App() {
       )}
 
 
+
+      {/* Favorites Section */}
+      <h2 style={{ marginTop: "2rem", color: "#fbbf24" }}>Favorites</h2>
       <div className="creator-grid">
-        {filteredCreators.map((creator) => (
+        {creators.filter(c => c.name === "Adin Ross" || c.name === "Starfireara").map((creator) => (
           <CreatorCard
             key={creator.id}
             creator={creator}
@@ -994,40 +997,24 @@ function App() {
             onUpdateNote={handleUpdateNote}
           />
         ))}
-        {filteredCreators.length === 0 && (
-          <div
-            style={{
-              gridColumn: "1/-1",
-              textAlign: "center",
-              padding: "3rem",
-              color: "var(--text-muted)",
-            }}
-          >
-            No creators found. Start by adding one!
-          </div>
-        )}
       </div>
 
-      {/* Show other creators in a separate section */}
-      {otherCreators.length > 0 && (
-        <>
-          <h2 style={{ marginTop: "2rem", color: "#7dd3fc" }}>Other Creators</h2>
-          <div className="creator-grid">
-            {otherCreators.map((creator) => (
-              <CreatorCard
-                key={creator.id}
-                creator={creator}
-                onToggleFavorite={handleToggleFavorite}
-                onDelete={handleDeleteCreator}
-                onRemoveAccount={handleRemoveAccount}
-                onCheckStatus={handleCheckCreatorStatus}
-                onTogglePin={handleTogglePin}
-                onUpdateNote={handleUpdateNote}
-              />
-            ))}
-          </div>
-        </>
-      )}
+      {/* Other Creators Section */}
+      <h2 style={{ marginTop: "2rem", color: "#7dd3fc" }}>Other Creators</h2>
+      <div className="creator-grid">
+        {creators.filter(c => c.name !== "Adin Ross" && c.name !== "Starfireara").map((creator) => (
+          <CreatorCard
+            key={creator.id}
+            creator={creator}
+            onToggleFavorite={handleToggleFavorite}
+            onDelete={handleDeleteCreator}
+            onRemoveAccount={handleRemoveAccount}
+            onCheckStatus={handleCheckCreatorStatus}
+            onTogglePin={handleTogglePin}
+            onUpdateNote={handleUpdateNote}
+          />
+        ))}
+      </div>
 
       {isFormOpen && (
         <CreatorForm
