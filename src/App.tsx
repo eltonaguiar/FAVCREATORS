@@ -1019,7 +1019,8 @@ function App() {
           <div>
             <h1>FavCreators</h1>
             <p className="subtitle">
-              Keep track of your favorite creators across the web
+              Ever watched a TikTok or an Instagram reel and wished you could get back to the creator or content?
+              Ever wished you knew if your favorite streamer was live and on what platform?
             </p>
           </div>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
