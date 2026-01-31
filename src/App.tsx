@@ -651,7 +651,7 @@ const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
   },
 ]);
 
-const DATA_VERSION = "7.0"; // Increment this to force reset localStorage
+const DATA_VERSION = "8.0"; // Increment this to force reset localStorage
 const QUICK_ADD_DEFAULT_TAGS = ["LOVE THEIR CONTENT"];
 
 function App() {
