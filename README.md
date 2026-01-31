@@ -1,5 +1,8 @@
 # FAVCREATORS
 
+## Live Demo
+Check out the live site: [https://eltonaguiar.github.io/FAVCREATORS/](https://eltonaguiar.github.io/FAVCREATORS/)
+
 Welcome to the FAVCREATORS project!
 
 ## Overview
