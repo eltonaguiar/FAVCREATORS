@@ -41,6 +41,9 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [category, setCategory] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTagInput, setCustomTagInput] = useState("");
+
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag],
@@ -57,8 +60,6 @@ const CreatorForm: React.FC<CreatorFormProps> = ({ onSave, onCancel }) => {
     setSelectedTags((prev) => [...prev, trimmed]);
     setCustomTagInput("");
   };
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [customTagInput, setCustomTagInput] = useState("");
 
   const [newAccount, setNewAccount] = useState({
     platform: "youtube" as Platform,

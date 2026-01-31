@@ -6,8 +6,9 @@ import CreatorForm from "./components/CreatorForm";
 import { googleSearchYoutubeChannel } from "./utils/googleSearch";
 import { grabAvatarFromAccounts } from "./utils/avatarGrabber";
 import { extractYoutubeUsername } from "./utils/youtube";
+import { ensureAvatarForCreators, ensureAvatarUrl } from "./utils/avatar";
 
-const INITIAL_DATA: Creator[] = [
+const INITIAL_DATA: Creator[] = ensureAvatarForCreators([
   {
     id: "1",
     name: "MrBeast",
@@ -330,12 +331,26 @@ const INITIAL_DATA: Creator[] = [
       },
     ],
   },
-];
+]);
 
 const DATA_VERSION = "7.0"; // Increment this to force reset localStorage
 const QUICK_ADD_DEFAULT_TAGS = ["LOVE THEIR CONTENT"];
 
 function App() {
+    // On mount, ensure every creator with a dicebear avatar gets a real avatar
+    useEffect(() => {
+      async function fixAllAvatars() {
+        for (const creator of creators) {
+          if (creator.avatarUrl && creator.avatarUrl.includes('dicebear.com')) {
+            const avatar = await grabAvatarFromAccounts(creator.accounts);
+            if (avatar && avatar !== creator.avatarUrl) {
+              setCreators((oldCreators) => oldCreators.map((c) => c.id === creator.id ? { ...c, avatarUrl: avatar } : c));
+            }
+          }
+        }
+      }
+      fixAllAvatars();
+    }, []);
   const [creators, setCreators] = useState<Creator[]>(() => {
     try {
       const savedVersion = localStorage.getItem("fav_creators_version");
@@ -346,7 +361,7 @@ function App() {
         return INITIAL_DATA;
       }
       const saved = localStorage.getItem("fav_creators");
-      return saved ? JSON.parse(saved) : INITIAL_DATA;
+      return saved ? ensureAvatarForCreators(JSON.parse(saved)) : INITIAL_DATA;
     } catch (e) {
       console.error("Failed to parse creators from localStorage", e);
       return INITIAL_DATA;
@@ -670,7 +685,7 @@ function App() {
     });
 
     if (changed) {
-      setCreators(migrated);
+      setCreators(ensureAvatarForCreators(migrated));
     }
   }, []);
 
@@ -780,7 +795,7 @@ function App() {
       tags: [...QUICK_ADD_DEFAULT_TAGS],
     };
 
-    setCreators([newCreator, ...creators]);
+    setCreators([ensureAvatarUrl(newCreator), ...creators]);
     setQuickAddValue("");
   };
 
@@ -888,7 +903,7 @@ function App() {
 
           // Check if it's our settings format or just creators array
           if (imported.creators && Array.isArray(imported.creators)) {
-            setCreators(imported.creators);
+            setCreators(ensureAvatarForCreators(imported.creators));
             if (imported.categoryFilter !== undefined)
               setCategoryFilter(imported.categoryFilter);
             if (imported.viewMode !== undefined) setViewMode(imported.viewMode);
@@ -897,7 +912,7 @@ function App() {
             );
           } else if (Array.isArray(imported)) {
             // Legacy format: just an array of creators
-            setCreators(imported);
+            setCreators(ensureAvatarForCreators(imported));
             alert(`Imported ${imported.length} creators!`);
           } else {
             alert("Invalid settings file format.");
@@ -957,7 +972,7 @@ function App() {
   };
 
   const handleSaveCreator = (newCreator: Creator) => {
-    setCreators([newCreator, ...creators]);
+    setCreators([ensureAvatarUrl(newCreator), ...creators]);
     setIsFormOpen(false);
   };
 
