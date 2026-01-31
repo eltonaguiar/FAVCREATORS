@@ -1,13 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 
-const distDir = path.resolve('dist');
-const nojekyllPath = path.join(distDir, '.nojekyll');
+const docsDir = path.resolve('docs');
+const nojekyllPath = path.join(docsDir, '.nojekyll');
 
-if (fs.existsSync(distDir)) {
+if (fs.existsSync(docsDir)) {
     fs.writeFileSync(nojekyllPath, '');
-    console.log('.nojekyll file created in dist/');
+    console.log('.nojekyll file created in docs/');
 } else {
-    console.error('dist directory not found. Run build first.');
+    console.error('docs directory not found. Run build first.');
     process.exit(1);
 }
