@@ -645,10 +645,7 @@ function App() {
 
   const [creators, setCreators] = useState<Creator[]>(() => {
     try {
-      if (isGuestMode) {
-        // Always use default data in guest mode
-        return INITIAL_DATA;
-      }
+      if (isGuestMode) return INITIAL_DATA;
       const savedVersion = localStorage.getItem("fav_creators_version");
       // Reset data if version mismatch (categories changed)
       if (savedVersion !== DATA_VERSION) {
@@ -663,6 +660,8 @@ function App() {
       return INITIAL_DATA;
     }
   });
+
+  const hasLoadedMineRef = useRef(false);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -763,6 +762,93 @@ function App() {
   }, [creators]);
 
   useEffect(() => {
+    const loadMine = async () => {
+      if (!authUser || authUser.provider === "admin") return;
+      try {
+        const base = getAuthBase();
+        const res = await fetch(`${base}/creators/mine`, {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { creators?: any[] };
+        if (!Array.isArray(data.creators) || data.creators.length === 0) return;
+        const normalized = data.creators.map((c) => ({
+          id: c.id,
+          name: c.name,
+          bio: c.bio || "",
+          avatarUrl: c.avatar_url || c.avatarUrl || "",
+          isFavorite: Boolean(c.is_favorite ?? c.isFavorite),
+          isPinned: Boolean(c.is_pinned ?? c.isPinned),
+          category: c.category || "",
+          reason: c.reason || "",
+          note: c.note || "",
+          tags: (() => {
+            try {
+              return typeof c.tags === "string" ? JSON.parse(c.tags) : c.tags || [];
+            } catch {
+              return [];
+            }
+          })(),
+          accounts: (() => {
+            try {
+              return typeof c.accounts === "string" ? JSON.parse(c.accounts) : c.accounts || [];
+            } catch {
+              return [];
+            }
+          })(),
+          addedAt: c.added_at ?? c.addedAt ?? Date.now(),
+          lastChecked: c.last_checked ?? c.lastChecked ?? Date.now(),
+        })) as Creator[];
+        setCreators(ensureAvatarForCreators(normalized));
+      } catch (e) {
+        console.warn("Failed to load user creators", e);
+      } finally {
+        hasLoadedMineRef.current = true;
+      }
+    };
+    void loadMine();
+  }, [authUser]);
+
+  useEffect(() => {
+    const persist = async () => {
+      if (!authUser) return;
+      try {
+        const base = getAuthBase();
+        if (authUser.provider === "admin") {
+          await fetch(`${base}/creators/bulk`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ creators }),
+          });
+          return;
+        }
+
+        await fetch(`${base}/creators/mine`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ creators }),
+        });
+      } catch (e) {
+        console.warn("Failed to persist creators", e);
+      }
+    };
+
+    if (isGuestMode) return;
+    if (!authUser) return;
+    if (authUser.provider !== "admin" && !hasLoadedMineRef.current) return;
+
+    const timeoutId = window.setTimeout(() => {
+      void persist();
+    }, 800);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [creators, authUser, isGuestMode]);
+
+  useEffect(() => {
     if (!isGuestMode) {
       const loadUser = async () => {
         try {
@@ -773,6 +859,56 @@ function App() {
         }
       };
       void loadUser();
+    }
+  }, [isGuestMode]);
+
+  useEffect(() => {
+    const loadFromServer = async () => {
+      try {
+        const base = getAuthBase();
+        const res = await fetch(`${base}/creators/public`, {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { creators?: any[] };
+        if (Array.isArray(data.creators) && data.creators.length) {
+          const normalized = data.creators.map((c) => ({
+            id: c.id,
+            name: c.name,
+            bio: c.bio || "",
+            avatarUrl: c.avatar_url || c.avatarUrl || "",
+            isFavorite: Boolean(c.is_favorite ?? c.isFavorite),
+            isPinned: Boolean(c.is_pinned ?? c.isPinned),
+            category: c.category || "",
+            reason: c.reason || "",
+            note: c.note || "",
+            tags: (() => {
+              try {
+                return typeof c.tags === "string" ? JSON.parse(c.tags) : c.tags || [];
+              } catch {
+                return [];
+              }
+            })(),
+            accounts: (() => {
+              try {
+                return typeof c.accounts === "string" ? JSON.parse(c.accounts) : c.accounts || [];
+              } catch {
+                return [];
+              }
+            })(),
+            addedAt: c.added_at ?? c.addedAt ?? Date.now(),
+            lastChecked: c.last_checked ?? c.lastChecked ?? Date.now(),
+          })) as Creator[];
+
+          setCreators(ensureAvatarForCreators(normalized));
+        }
+      } catch (e) {
+        console.warn("Failed to load creators from server", e);
+      }
+    };
+
+    if (isGuestMode) {
+      void loadFromServer();
     }
   }, [isGuestMode]);
 
